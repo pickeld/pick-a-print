@@ -51,17 +51,22 @@ class ReconstructionPipeline:
                 break
             if self.ws.is_stage_done(stage) and stage != JobStage.UPLOADED:
                 logger.info("Skipping completed stage %s for job %s", stage, self.job.id)
+                self.job.append_log("Skipped (already completed)", stage)
                 self.job.touch(stage)
                 self.job.save(self.config.workspace_root)
                 continue
             try:
                 logger.info("Running stage %s for job %s", stage, self.job.id)
+                self.job.append_log("Stage started", stage)
+                self.job.save(self.config.workspace_root)
                 self._run_stage(stage)
                 self.ws.mark_stage_done(stage)
+                self.job.append_log("Stage completed", stage)
                 self.job.touch(stage)
                 self.job.save(self.config.workspace_root)
             except Exception as exc:
                 logger.exception("Stage %s failed for job %s", stage, self.job.id)
+                self.job.append_log(f"Failed: {exc}", stage)
                 self.job.mark_failed(f"{stage}: {exc}")
                 self.job.save(self.config.workspace_root)
                 raise
@@ -174,15 +179,25 @@ class ReconstructionPipeline:
         self._write_report()
 
     def _extract_or_copy_images(self) -> None:
+        from app.pipeline.input_extract import prepare_scan_input
+
         self.ws.frames_dir.mkdir(parents=True, exist_ok=True)
-        videos = list(self.ws.input_dir.glob("*.mp4")) + list(self.ws.input_dir.glob("*.mov"))
-        images = [
-            p
-            for p in self.ws.input_dir.iterdir()
-            if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
-        ]
+        prepared = prepare_scan_input(self.ws.input_dir)
+
+        if prepared.archives:
+            names = ", ".join(a.name for a in prepared.archives)
+            self.job.append_log(
+                f"Extracted {prepared.extracted_files} file(s) from {len(prepared.archives)} archive(s): {names}",
+                JobStage.PREPROCESSING,
+            )
+            self.job.save(self.config.workspace_root)
+
+        videos = prepared.videos
+        images = prepared.images
 
         if videos:
+            self.job.append_log(f"Using video: {videos[0].name}", JobStage.PREPROCESSING)
+            self.job.save(self.config.workspace_root)
             result = self.ffmpeg.extract_frames(
                 videos[0],
                 self.ws.frames_dir,
@@ -191,10 +206,16 @@ class ReconstructionPipeline:
             if not result.ok:
                 raise StageError(result.message)
         elif images:
-            for img in images:
-                shutil.copy2(img, self.ws.frames_dir / img.name)
+            self.job.append_log(f"Copying {len(images)} image(s) to frames/", JobStage.PREPROCESSING)
+            self.job.save(self.config.workspace_root)
+            for index, img in enumerate(images):
+                suffix = img.suffix.lower() if img.suffix else ".jpg"
+                dest = self.ws.frames_dir / f"frame_{index:05d}{suffix}"
+                shutil.copy2(img, dest)
         else:
-            raise StageError("Input must contain images or a video file")
+            raise StageError(
+                "Input must contain images, a video, or a .zip archive with photos/video inside"
+            )
 
     def _find_mesh_input(self) -> Path:
         for pattern in ("*.ply", "*.obj"):
