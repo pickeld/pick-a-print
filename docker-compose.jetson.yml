@@ -1,0 +1,34 @@
+# Remote CUDA scan worker for Jetson Orin / JetPack 6.x (r36.4).
+# Run on the Jetson (192.168.127.240); connects to srv2 (192.168.127.252) Redis + MinIO.
+#
+#   docker compose -f docker-compose.jetson.yml up -d --build
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile.jetson
+    image: pick-a-print-worker-jetson
+    restart: unless-stopped
+    runtime: nvidia
+    network_mode: host
+    volumes:
+      - jetson_scan_jobs:/data/jobs
+    environment:
+      PIPELINE_DATA_DIR: /data/jobs
+      QT_QPA_PLATFORM: offscreen
+      COLMAP_USE_GPU: "1"
+      COLMAP_MAX_IMAGE_SIZE: ${COLMAP_MAX_IMAGE_SIZE:-1200}
+      COLMAP_SIFT_THREADS: "0"
+      COLMAP_MATCHER: ${COLMAP_MATCHER:-exhaustive}
+      CELERY_BROKER_URL: ${SRV2_REDIS_URL:-redis://192.168.127.252:6379/1}
+      CELERY_RESULT_BACKEND: ${SRV2_REDIS_URL:-redis://192.168.127.252:6379/1}
+      MINIO_ENDPOINT: ${SRV2_MINIO_URL:-http://192.168.127.252:9002}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-scans}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics
+
+volumes:
+  jetson_scan_jobs:

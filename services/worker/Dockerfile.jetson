@@ -1,0 +1,79 @@
+# Photogrammetry worker for NVIDIA Jetson (JetPack 6.x / L4T r36, CUDA 12.6, aarch64).
+# Builds COLMAP with CUDA for dense stereo + GPU SIFT.
+#
+# Build on the Jetson:
+#   docker compose -f docker-compose.jetson.yml build worker
+#
+# Requires: nvidia-container-runtime (default on JetPack 6).
+
+FROM nvcr.io/nvidia/l4t-jetpack:r36.4.0
+
+ARG COLMAP_VERSION=3.9.1
+ARG CUDA_ARCH=87
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIPELINE_DATA_DIR=/data/jobs \
+    QT_QPA_PLATFORM=offscreen \
+    COLMAP_USE_GPU=1 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics \
+    PATH="/usr/local/bin:${PATH}"
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    cmake \
+    ninja-build \
+    build-essential \
+    wget \
+    ca-certificates \
+    ffmpeg \
+    libboost-program-options-dev \
+    libboost-filesystem-dev \
+    libboost-graph-dev \
+    libboost-system-dev \
+    libeigen3-dev \
+    libflann-dev \
+    libfreeimage-dev \
+    libmetis-dev \
+    libgoogle-glog-dev \
+    libgflags-dev \
+    libsqlite3-dev \
+    libglew-dev \
+    qtbase5-dev \
+    libqt5opengl5-dev \
+    libcgal-dev \
+    libceres-dev \
+  && rm -rf /var/lib/apt/lists/* \
+  && ln -sf /usr/bin/python3 /usr/bin/python
+
+RUN git clone --depth 1 --branch "${COLMAP_VERSION}" https://github.com/colmap/colmap.git /tmp/colmap \
+  && cmake -S /tmp/colmap -B /tmp/colmap/build -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DCUDA_ENABLED=ON \
+      -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}" \
+      -DGUI_ENABLED=OFF \
+      -DTESTS_ENABLED=OFF \
+  && cmake --build /tmp/colmap/build -j"$(nproc)" \
+  && cmake --install /tmp/colmap/build \
+  && rm -rf /tmp/colmap \
+  && colmap -h 2>&1 | head -3
+
+COPY requirements-photogrammetry.txt /app/
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements-photogrammetry.txt
+
+COPY app/ /app/app/
+COPY scan.py /app/scan.py
+
+RUN mkdir -p /data/jobs /input /output
+
+VOLUME ["/data/jobs", "/input", "/output"]
+
+CMD ["celery", "-A", "app.workers.celery_app", "worker", "-l", "info", "-Q", "celery", "--concurrency=1"]
