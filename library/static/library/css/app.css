@@ -588,11 +588,14 @@ img {
 }
 
 .collection-card {
+  display: block;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.25rem;
   transition: border-color 0.15s, transform 0.15s;
+  color: inherit;
+  text-decoration: none;
 }
 
 .collection-card:hover {
@@ -1092,345 +1095,6 @@ img {
   display: block;
 }
 
-/* --- Responsive: tablet & mobile --- */
-
-@media (max-width: 900px) {
-  .menu-toggle {
-    display: inline-flex;
-    flex-shrink: 0;
-  }
-
-  .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-    z-index: 100;
-    box-shadow: var(--shadow);
-  }
-
-  .sidebar.open {
-    transform: translateX(0);
-  }
-
-  .main {
-    margin-left: 0;
-  }
-
-  .topbar {
-    padding: 0.75rem 1rem;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .search-form {
-    flex: 1 1 100%;
-    order: 3;
-    max-width: none;
-    min-width: 0;
-  }
-
-  .topbar-actions {
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  .topbar-actions-scan {
-    display: none;
-  }
-
-  .topbar-actions .btn-primary {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
-  }
-
-  .content {
-    padding: 1rem;
-  }
-
-  .page-header h2 {
-    font-size: 1.35rem;
-  }
-
-  .page-header--with-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .page-header--with-actions .btn {
-    align-self: flex-start;
-    margin-top: 0;
-  }
-
-  .section-header {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .stats-row {
-    gap: 0.5rem;
-  }
-
-  .stat-card {
-    flex: 1 1 calc(33.333% - 0.5rem);
-    min-width: 90px;
-    padding: 0.75rem;
-  }
-
-  .stat-card .value {
-    font-size: 1.25rem;
-  }
-
-  .model-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
-  }
-
-  .collection-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  }
-
-  .collections-page-layout {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .collections-page-layout .form-card {
-    max-width: none;
-  }
-
-  .detail-layout,
-  .detail-layout--with-viewer {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-  }
-
-  .detail-info h2 {
-    font-size: 1.4rem;
-  }
-
-  .detail-preview--viewer .scan-viewer-wrap,
-  .detail-preview--viewer .scan-viewer-wrap model-viewer {
-    min-height: 320px;
-  }
-
-  .filters-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filters-bar .form-group {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .filters-bar select,
-  .filters-bar input {
-    width: 100%;
-  }
-
-  .filters-bar .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .form-actions {
-    flex-wrap: wrap;
-  }
-
-  .bulk-actions-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-
-  .bulk-actions-bar .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .tab {
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  .about-summary {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .about-actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .scan-layout,
-  .scan-job-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .scan-job-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .scan-job-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .scan-job-actions .btn {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .scan-viewer-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.35rem;
-  }
-
-  .scan-viewer-wrap,
-  .scan-viewer-wrap model-viewer {
-    min-height: 320px;
-  }
-
-  .scan-viewer-hint {
-    display: none;
-  }
-
-  .scan-recent-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .scan-log-card {
-    min-height: 280px;
-  }
-
-  .log-panel {
-    max-height: 360px;
-    font-size: 0.72rem;
-  }
-
-  .form-card {
-    max-width: none;
-    padding: 1.25rem;
-  }
-
-  .login-card {
-    margin: 1rem;
-    padding: 1.75rem 1.25rem;
-  }
-
-  body.nav-open {
-    overflow: hidden;
-  }
-}
-
-@media (max-width: 600px) {
-  html,
-  body {
-    font-size: 14px;
-  }
-
-  .topbar {
-    padding: 0.65rem 0.75rem;
-  }
-
-  .content {
-    padding: 0.75rem;
-  }
-
-  .page-header {
-    margin-bottom: 1.25rem;
-  }
-
-  .page-header h2 {
-    font-size: 1.2rem;
-  }
-
-  .model-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.65rem;
-  }
-
-  .model-card-body {
-    padding: 0.65rem;
-  }
-
-  .model-card-title {
-    font-size: 0.82rem;
-  }
-
-  .collection-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stat-card {
-    flex: 1 1 100%;
-  }
-
-  .stats-row {
-    flex-direction: column;
-  }
-
-  .detail-meta-list li {
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.55rem 0;
-  }
-
-  .detail-meta-list .label {
-    min-width: 0;
-    font-size: 0.75rem;
-  }
-
-  .form-actions {
-    flex-direction: column;
-  }
-
-  .form-actions .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .btn {
-    min-height: 44px;
-  }
-
-  .dep-table {
-    font-size: 0.78rem;
-  }
-
-  .dep-table th,
-  .dep-table td {
-    padding: 0.5rem 0.65rem;
-  }
-
-  .file-drop-panel {
-    padding: 1.5rem 1.25rem;
-  }
-
-  .scan-output-actions {
-    flex-direction: column;
-  }
-
-  .scan-output-actions .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .scan-progress-meta {
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  .empty-state {
-    padding: 2rem 0.75rem;
-  }
-}
-
 /* --- 3D Scan UI --- */
 
 .scan-layout {
@@ -1874,4 +1538,347 @@ img {
   margin: 0.5rem 0 0;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+/* --- Responsive: tablet & mobile --- */
+
+@media (max-width: 900px) {
+  .menu-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 100;
+    box-shadow: var(--shadow);
+    padding-top: max(1.25rem, env(safe-area-inset-top));
+    padding-bottom: max(0rem, env(safe-area-inset-bottom));
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  .topbar {
+    padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .search-form {
+    flex: 1 1 100%;
+    order: 3;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .topbar-actions {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .topbar-actions-scan {
+    display: none;
+  }
+
+  .topbar-actions .btn-primary {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .content {
+    padding: 1rem;
+    padding-bottom: max(3rem, env(safe-area-inset-bottom));
+  }
+
+  .page-header h2 {
+    font-size: 1.35rem;
+  }
+
+  .page-header--with-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-header--with-actions .btn {
+    align-self: flex-start;
+    margin-top: 0;
+  }
+
+  .section-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .stats-row {
+    gap: 0.5rem;
+  }
+
+  .stat-card {
+    flex: 1 1 calc(33.333% - 0.5rem);
+    min-width: 90px;
+    padding: 0.75rem;
+  }
+
+  .stat-card .value {
+    font-size: 1.25rem;
+  }
+
+  .model-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .collection-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .collections-page-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .collections-page-layout .form-card {
+    max-width: none;
+  }
+
+  .detail-layout,
+  .detail-layout--with-viewer {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .detail-info h2 {
+    font-size: 1.4rem;
+  }
+
+  .detail-preview--viewer .scan-viewer-wrap,
+  .detail-preview--viewer .scan-viewer-wrap model-viewer {
+    min-height: 320px;
+  }
+
+  .filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters-bar .form-group {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filters-bar select,
+  .filters-bar input {
+    width: 100%;
+  }
+
+  .filters-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .bulk-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .bulk-actions-bar .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .about-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .about-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .scan-layout,
+  .scan-job-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .scan-job-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scan-job-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .scan-job-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .scan-viewer-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .scan-viewer-wrap,
+  .scan-viewer-wrap model-viewer {
+    min-height: 320px;
+  }
+
+  .scan-viewer-hint {
+    display: none;
+  }
+
+  .scan-recent-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .scan-log-card {
+    min-height: 280px;
+  }
+
+  .log-panel {
+    max-height: 360px;
+    font-size: 0.72rem;
+  }
+
+  .form-card {
+    max-width: none;
+    padding: 1.25rem;
+  }
+
+  .login-card {
+    margin: 1rem;
+    padding: 1.75rem 1.25rem;
+  }
+
+  body.nav-open {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 600px) {
+  html,
+  body {
+    font-size: 14px;
+  }
+
+  .topbar {
+    padding: max(0.65rem, env(safe-area-inset-top)) 0.75rem 0.65rem;
+  }
+
+  .content {
+    padding: 0.75rem;
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+
+  .page-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .page-header h2 {
+    font-size: 1.2rem;
+  }
+
+  .model-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .model-card-body {
+    padding: 0.65rem;
+  }
+
+  .model-card-title {
+    font-size: 0.82rem;
+  }
+
+  .collection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    flex: 1 1 100%;
+  }
+
+  .stats-row {
+    flex-direction: column;
+  }
+
+  .detail-meta-list li {
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.55rem 0;
+  }
+
+  .detail-meta-list .label {
+    min-width: 0;
+    font-size: 0.75rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+
+  .dep-table {
+    font-size: 0.78rem;
+  }
+
+  .dep-table th,
+  .dep-table td {
+    padding: 0.5rem 0.65rem;
+  }
+
+  .file-drop-panel {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .scan-output-actions {
+    flex-direction: column;
+  }
+
+  .scan-output-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .scan-progress-meta {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .empty-state {
+    padding: 2rem 0.75rem;
+  }
 }
