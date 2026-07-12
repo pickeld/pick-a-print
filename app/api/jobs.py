@@ -49,6 +49,9 @@ async def create_job(files: list[UploadFile] = File(...)) -> JobCreateResponse:
     job = Job.create(job_id)
     job.save(storage.root)
 
+    if hasattr(storage, "upload_workspace"):
+        storage.upload_workspace(job_id, ws.root)
+
     run_scan.delay(job_id)
     return JobCreateResponse(job_id=job_id, stage=job.stage.value, message="Job queued")
 

@@ -16,13 +16,15 @@ def run_scan(self, job_id: str) -> dict:
     config = PipelineConfig.from_env()
 
     storage = get_storage()
+    ws = storage.workspace(job_id)
     if hasattr(storage, "download_prefix"):
-        storage.download_prefix(job_id, storage.root / job_id)
+        storage.download_prefix(job_id, ws.root)
 
     job = process_scan(job_id, config)
 
-    ws = storage.workspace(job_id)
-    if hasattr(storage, "sync_outputs") and ws.output_dir.exists():
+    if hasattr(storage, "push_job_state"):
+        storage.push_job_state(job_id, ws.root)
+    elif hasattr(storage, "sync_outputs") and ws.output_dir.exists():
         storage.sync_outputs(job_id, ws.output_dir)
 
     return job.to_dict()
@@ -35,6 +37,17 @@ def run_stage(self, job_id: str, stage: str) -> dict:
     from app.pipeline.orchestrator import ReconstructionPipeline
 
     config = PipelineConfig.from_env()
+    storage = get_storage()
+    ws = storage.workspace(job_id)
+    if hasattr(storage, "download_prefix"):
+        storage.download_prefix(job_id, ws.root)
+
     pipeline = ReconstructionPipeline(job_id, config)
     job = pipeline.run(from_stage=JobStage(stage))
+
+    if hasattr(storage, "push_job_state"):
+        storage.push_job_state(job_id, ws.root)
+    elif hasattr(storage, "sync_outputs") and ws.output_dir.exists():
+        storage.sync_outputs(job_id, ws.output_dir)
+
     return job.to_dict()

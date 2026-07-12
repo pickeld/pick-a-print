@@ -21,6 +21,7 @@ from app.pipeline.hardware import colmap_cuda_available
 from app.pipeline.stages import STAGE_DESCRIPTIONS
 from app.pipeline.workspace import JobWorkspace
 from app.storage.local import LocalStorage
+from app.storage.minio_storage import MinioStorage, get_storage
 from library.models import ScanJob
 from library.services import ModelSaveError, save_model_from_upload
 
@@ -85,6 +86,10 @@ def load_pipeline_job(job_id: str) -> PipelineJob:
 
 def sync_scan_job(scan_job: ScanJob) -> ScanJob:
     """Refresh Django record from on-disk pipeline job.json."""
+    root = workspace_root()
+    storage = get_storage()
+    if isinstance(storage, MinioStorage):
+        storage.pull_job_state(str(scan_job.job_id), root / str(scan_job.job_id))
     pipeline_job = load_pipeline_job(str(scan_job.job_id))
     stage = pipeline_job.stage.value if isinstance(pipeline_job.stage, JobStage) else str(pipeline_job.stage)
     scan_job.stage = stage
@@ -178,6 +183,10 @@ def create_scan_job(
             "collection_ids": collection_ids or [],
         },
     )
+
+    storage = get_storage()
+    if isinstance(storage, MinioStorage):
+        storage.upload_workspace(job_id, ws.root)
 
     queue_scan(job_id)
     return scan_job

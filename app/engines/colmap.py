@@ -12,11 +12,22 @@ class ColmapEngine:
         return require_binary("colmap")
 
     def _sparse_model_dir(self, sparse_dir: Path) -> Path | None:
-        preferred = sparse_dir / "0"
-        if preferred.exists():
-            return preferred
-        models = sorted(p for p in sparse_dir.iterdir() if p.is_dir())
-        return models[0] if models else None
+        """Pick the sparse model with the most registered images (COLMAP may emit fragments)."""
+        models = [p for p in sparse_dir.iterdir() if p.is_dir() and (p / "images.bin").exists()]
+        if not models:
+            return None
+
+        def _registered_images(model_dir: Path) -> int:
+            images_bin = model_dir / "images.bin"
+            try:
+                import struct
+
+                with images_bin.open("rb") as handle:
+                    return struct.unpack("<Q", handle.read(8))[0]
+            except OSError:
+                return 0
+
+        return max(models, key=_registered_images)
 
     def extract_features(
         self, images_dir: Path, database: Path, config: ColmapConfig

@@ -46,11 +46,67 @@ class MinioStorage(LocalStorage):
         if client is None:
             return
         prefix = f"jobs/{job_id}/"
+        local_ws.mkdir(parents=True, exist_ok=True)
         for obj in client.list_objects(self.bucket, prefix=prefix, recursive=True):
             rel = obj.object_name[len(prefix) :]
+            if not rel:
+                continue
             dest = local_ws / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             client.fget_object(self.bucket, obj.object_name, str(dest))
+
+    def upload_workspace(self, job_id: str, ws_root: Path) -> None:
+        """Upload inputs and job state so a remote GPU worker can process the scan."""
+        client = self._get_client()
+        if client is None:
+            return
+        ws_root = Path(ws_root)
+        candidates: list[Path] = []
+        job_json = ws_root / "job.json"
+        if job_json.exists():
+            candidates.append(job_json)
+        input_dir = ws_root / "input"
+        if input_dir.exists():
+            candidates.extend(p for p in input_dir.rglob("*") if p.is_file())
+        for path in candidates:
+            rel = path.relative_to(ws_root)
+            key = f"jobs/{job_id}/{rel.as_posix()}"
+            client.fput_object(self.bucket, key, str(path))
+
+    def push_job_state(self, job_id: str, ws_root: Path) -> None:
+        """Upload pipeline state and outputs after remote processing."""
+        client = self._get_client()
+        if client is None:
+            return
+        ws_root = Path(ws_root)
+        paths: list[Path] = []
+        job_json = ws_root / "job.json"
+        if job_json.exists():
+            paths.append(job_json)
+        output_dir = ws_root / "output"
+        if output_dir.exists():
+            paths.extend(p for p in output_dir.rglob("*") if p.is_file())
+        for path in paths:
+            rel = path.relative_to(ws_root)
+            key = f"jobs/{job_id}/{rel.as_posix()}"
+            client.fput_object(self.bucket, key, str(path))
+
+    def pull_job_state(self, job_id: str, ws_root: Path) -> None:
+        """Refresh local job.json and outputs from object storage."""
+        client = self._get_client()
+        if client is None:
+            return
+        ws_root = Path(ws_root)
+        ws_root.mkdir(parents=True, exist_ok=True)
+        prefixes = (f"jobs/{job_id}/job.json", f"jobs/{job_id}/output/")
+        for prefix in prefixes:
+            for obj in client.list_objects(self.bucket, prefix=prefix, recursive=True):
+                rel = obj.object_name.removeprefix(f"jobs/{job_id}/")
+                if not rel:
+                    continue
+                dest = ws_root / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                client.fget_object(self.bucket, obj.object_name, str(dest))
 
     def sync_outputs(self, job_id: str, output_dir: Path) -> None:
         client = self._get_client()
