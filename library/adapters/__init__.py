@@ -1,12 +1,23 @@
 from urllib.parse import urlparse
 
-from library.adapters.base import FetchedMetadata, SourceAdapter, normalize_url
-from library.adapters.sites import GenericOpenGraphAdapter, MakerWorldAdapter, PrintablesAdapter, ThangsAdapter
+from library.adapters.base import FetchedMetadata, SourceAdapter, canonicalize_model_url, normalize_url
+from library.adapters.sites import (
+    Cults3dAdapter,
+    GenericOpenGraphAdapter,
+    MakerWorldAdapter,
+    MyMiniFactoryAdapter,
+    PrintablesAdapter,
+    ThangsAdapter,
+    ThingiverseAdapter,
+)
 
 _ADAPTERS: list[SourceAdapter] = [
     PrintablesAdapter(),
     MakerWorldAdapter(),
     ThangsAdapter(),
+    ThingiverseAdapter(),
+    MyMiniFactoryAdapter(),
+    Cults3dAdapter(),
     GenericOpenGraphAdapter(),
 ]
 
@@ -21,7 +32,7 @@ def get_adapter(url: str) -> SourceAdapter:
 
 def fetch_metadata_from_url(url: str) -> FetchedMetadata:
     adapter = get_adapter(url)
-    return adapter.fetch_metadata(normalize_url(url))
+    return adapter.fetch_metadata(canonicalize_model_url(url))
 
 
 def detect_source_site(url: str) -> str:

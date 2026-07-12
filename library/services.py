@@ -1,3 +1,4 @@
+import re
 import uuid
 from pathlib import Path
 
@@ -5,7 +6,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 
 from library.adapters import detect_source_site, fetch_metadata_from_url
-from library.adapters.base import FetchedMetadata, normalize_url
+from library.adapters.base import FetchedMetadata, canonicalize_model_url, normalize_url
 from library.models import Collection, ModelFile, ModelStatus, SavedModel, SourceType, Tag
 
 
@@ -22,6 +23,18 @@ def _queue_metadata_enrichment(model_id: int) -> None:
         # Celery/Redis unavailable — sync enrich as fallback
         try:
             enrich_model_metadata(model_id)
+        except Exception:
+            pass
+
+
+def _queue_model_download(model_id: int) -> None:
+    try:
+        from library.tasks import download_model_files
+
+        download_model_files.delay(model_id)
+    except Exception:
+        try:
+            download_model_files(model_id)
         except Exception:
             pass
 
@@ -49,23 +62,24 @@ def save_model_from_url(
     fetch_sync: bool = False,
 ) -> SavedModel:
     try:
-        normalized_url = normalize_url(url)
+        normalized_url = canonicalize_model_url(normalize_url(url))
     except ValueError as exc:
         raise ModelSaveError("Invalid URL") from exc
 
     fetched = None
-    if fetch_sync:
-        try:
-            fetched = fetch_metadata_from_url(normalized_url)
-        except Exception:
-            fetched = None
+    try:
+        fetched = fetch_metadata_from_url(normalized_url)
+    except Exception:
+        fetched = None
 
     if fetched is None:
         fetched = FetchedMetadata(
             title=_title_from_url(normalized_url),
             source_site=detect_source_site(normalized_url),
-            metadata={"fetch_status": "pending"},
+            metadata={"fetch_status": "pending", "download_status": "pending"},
         )
+    elif fetched.metadata.get("download_status") is None:
+        fetched.metadata = {**fetched.metadata, "download_status": "pending"}
 
     lookup = {"user": user, "source_url": normalized_url}
     defaults = {
@@ -86,6 +100,9 @@ def save_model_from_url(
 
     if model.metadata.get("fetch_status") != "complete":
         _queue_metadata_enrichment(model.id)
+
+    if model.source_type == SourceType.LINK and not model.files.exists():
+        _queue_model_download(model.id)
 
     model._was_created = created  # type: ignore[attr-defined]
     return model
@@ -150,5 +167,8 @@ def _apply_tags_and_collections(model, user, tag_names, collection_ids):
 
 
 def _title_from_url(url: str) -> str:
+    match = re.search(r"/model/\d+-([^/]+)", url)
+    if match:
+        return match.group(1).replace("-", " ").replace("_", " ").title()
     path = url.rstrip("/").split("/")[-1]
     return path.replace("-", " ").replace("_", " ").title() or url

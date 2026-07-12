@@ -309,6 +309,18 @@ img {
   font-size: 0.9rem;
 }
 
+.page-header--with-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-header--with-actions .btn {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
 .stats-row {
   display: flex;
   gap: 1rem;
@@ -369,12 +381,103 @@ img {
   gap: 1rem;
 }
 
+.bulk-actions-bar {
+  display: none;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.model-bulk-page.is-editing .bulk-actions-bar {
+  display: flex;
+}
+
+.bulk-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.bulk-selection-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.model-card-wrap {
+  position: relative;
+}
+
+.model-card-wrap.is-selected .model-card {
+  border-color: rgba(245, 158, 11, 0.65);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+
+.model-card-check {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  z-index: 2;
+  display: none;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+}
+
+.model-bulk-edit-btn.is-active {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent);
+}
+
+.model-bulk-page.is-editing .model-card-check {
+  display: grid;
+}
+
+.model-bulk-page.is-editing .model-card--selectable {
+  cursor: default;
+}
+
+.model-bulk-page.is-editing .model-card--selectable:hover {
+  transform: none;
+}
+
+.model-card-check input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  cursor: pointer;
+}
+
 .model-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  display: block;
+  color: inherit;
+  text-decoration: none;
 }
 
 .model-card:hover {
@@ -623,6 +726,10 @@ img {
   align-items: start;
 }
 
+.detail-layout--with-viewer {
+  grid-template-columns: minmax(360px, 1.1fr) minmax(280px, 0.9fr);
+}
+
 .detail-preview {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -645,6 +752,23 @@ img {
   font-size: 4rem;
   color: var(--text-muted);
   background: linear-gradient(135deg, var(--bg-elevated), var(--bg-hover));
+}
+
+.detail-preview--viewer {
+  aspect-ratio: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  overflow: visible;
+}
+
+.detail-preview--viewer .scan-viewer-wrap {
+  min-height: 420px;
+}
+
+.detail-preview--viewer .scan-viewer-wrap model-viewer {
+  min-height: 420px;
 }
 
 .detail-info h2 {
@@ -1303,6 +1427,30 @@ img {
   font-size: 0.9rem;
   z-index: 1;
   pointer-events: none;
+  background: rgba(15, 17, 21, 0.55);
+}
+
+.viewer-load-panel {
+  width: min(280px, 80%);
+  text-align: center;
+}
+
+.viewer-load-label {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.viewer-load-track {
+  height: 6px;
+  margin: 0 auto;
+}
+
+.viewer-load-percent {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }
 
 .scan-viewer-error {

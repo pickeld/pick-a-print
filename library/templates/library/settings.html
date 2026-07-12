@@ -15,13 +15,45 @@
 
 <div class="tabs">
   <a href="?tab=api" class="tab {% if active_tab == 'api' %}active{% endif %}">API &amp; Extension</a>
+  <a href="?tab=downloads" class="tab {% if active_tab == 'downloads' %}active{% endif %}">Auto-download</a>
   <a href="?tab=about" class="tab {% if active_tab == 'about' %}active{% endif %}">
     About
     {% if updates_available %}<span class="tab-dot" title="Updates available"></span>{% endif %}
   </a>
 </div>
 
-{% if active_tab == 'api' %}
+{% if active_tab == 'downloads' %}
+<div class="form-card" style="max-width:720px">
+  <p class="text-muted" style="margin-top:0">When you save a model link, Pick-a-Print tries to download STL/3MF files automatically.</p>
+  <div class="table-wrap">
+    <table class="dep-table">
+      <thead>
+        <tr>
+          <th>Site</th>
+          <th>Status</th>
+          <th>Setup</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in download_integrations %}
+        <tr>
+          <td>{{ row.site }}</td>
+          <td>
+            {% if row.status == 'ready' %}<span class="badge badge-status saved">Ready</span>
+            {% elif row.status == 'configured' %}<span class="badge badge-status downloaded">Configured</span>
+            {% elif row.status == 'needs_token' %}<span class="badge badge-status saved">Needs token</span>
+            {% else %}<span class="badge badge-status">Limited</span>{% endif %}
+          </td>
+          <td class="text-muted">{{ row.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="helptext" style="margin-bottom:0">Add tokens to <code>docker-compose.yml</code> (web + library-worker) or your <code>.env</code>, then rebuild.</p>
+</div>
+
+{% elif active_tab == 'api' %}
 <div class="form-card" style="max-width:640px">
   <div class="form-group">
     <label>API Base URL</label>

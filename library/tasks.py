@@ -1,12 +1,14 @@
+from pathlib import Path
+
 from celery import shared_task
 
 from library.adapters import fetch_metadata_from_url
-from library.models import ModelFile, SavedModel
+from library.models import ModelFile, SavedModel, SourceType
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 5})
 def enrich_model_metadata(self, model_id: int) -> str:
-    model = SavedModel.objects.filter(pk=model_id, source_type=SavedModel.SourceType.LINK).first()
+    model = SavedModel.objects.filter(pk=model_id, source_type=SourceType.LINK).first()
     if not model or not model.source_url:
         return "skipped"
 
@@ -35,27 +37,66 @@ def enrich_model_metadata(self, model_id: int) -> str:
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
+def download_model_files(self, model_id: int) -> str:
+    model = SavedModel.objects.filter(pk=model_id, source_type=SourceType.LINK).first()
+    if not model:
+        return "skipped"
+
+    from library.model_download import download_files_for_model
+
+    result = download_files_for_model(model)
+    status = result.get("status", "failed")
+    meta = model.metadata or {}
+
+    if status == "complete":
+        return f"download:{model_id}:complete"
+
+    if status == "skipped":
+        return f"download:{model_id}:skipped"
+
+    meta["download_status"] = status
+    meta["download_error"] = result.get("error")
+    model.metadata = meta
+    model.save(update_fields=["metadata", "updated_at"])
+
+    if status == "unsupported":
+        return f"download:{model_id}:unsupported"
+
+    raise RuntimeError(result.get("error") or "download failed")
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 3})
 def analyze_model_file(self, file_id: int) -> str:
     model_file = ModelFile.objects.select_related("model").filter(pk=file_id).first()
     if not model_file or not model_file.file:
         return "skipped"
 
-    from library.stl_analysis import analyze_stl_file
+    file_type = (model_file.file_type or "stl").lower()
+    if file_type == "stl":
+        from library.stl_analysis import analyze_stl_file
 
-    analysis = analyze_stl_file(model_file.file.path)
-    data = analysis.as_dict()
+        analysis = analyze_stl_file(model_file.file.path)
+        data = analysis.as_dict()
 
-    model_file.file_size = data["file_size"]
-    model_file.triangle_count = data["triangle_count"]
-    model_file.dimension_x = data["dimension_x"]
-    model_file.dimension_y = data["dimension_y"]
-    model_file.dimension_z = data["dimension_z"]
-    model_file.volume_cm3 = data["volume_cm3"]
-    model_file.analysis = data
-    model_file.save()
+        model_file.file_size = data["file_size"]
+        model_file.triangle_count = data["triangle_count"]
+        model_file.dimension_x = data["dimension_x"]
+        model_file.dimension_y = data["dimension_y"]
+        model_file.dimension_z = data["dimension_z"]
+        model_file.volume_cm3 = data["volume_cm3"]
+        model_file.analysis = data
+        model_file.save()
 
-    meta = model_file.model.metadata or {}
-    meta["file_analysis"] = data
-    model_file.model.metadata = meta
-    model_file.model.save(update_fields=["metadata", "updated_at"])
+        meta = model_file.model.metadata or {}
+        meta["file_analysis"] = data
+        model_file.model.metadata = meta
+        model_file.model.save(update_fields=["metadata", "updated_at"])
+    else:
+        model_file.file_size = model_file.file.size or model_file.file_size
+        model_file.analysis = {**(model_file.analysis or {}), "file_type": file_type}
+        model_file.save(update_fields=["file_size", "analysis"])
+
+    from library.stl_preview import ensure_preview_glb
+
+    ensure_preview_glb(Path(model_file.file.path))
     return f"analyzed:{file_id}"

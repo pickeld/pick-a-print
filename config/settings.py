@@ -145,6 +145,38 @@ SCAN_CELERY_BROKER_URL = os.getenv("SCAN_CELERY_BROKER_URL", "redis://redis:6379
 # HTTP timeout for metadata fetching from external sites (seconds).
 METADATA_FETCH_TIMEOUT = int(os.getenv("METADATA_FETCH_TIMEOUT", "15"))
 
+DOWNLOAD_ALLOWED_HOSTS = tuple(
+    host.strip()
+    for host in os.getenv(
+        "DOWNLOAD_ALLOWED_HOSTS",
+        ",".join(
+            [
+                "files.printables.com",
+                "media.printables.com",
+                "*.printables.com",
+                "thangs.com",
+                "*.thangs.com",
+                "api.thingiverse.com",
+                "cdn.thingiverse.com",
+                "*.thingiverse.com",
+                "www.myminifactory.com",
+                "myminifactory.com",
+                "*.myminifactory.com",
+                "makerworld.com",
+                "*.makerworld.com",
+                "public-cdn.bblmw.com",
+                "*.amazonaws.com",
+                "*.cloudfront.net",
+            ]
+        ),
+    ).split(",")
+    if host.strip()
+)
+
+THINGIVERSE_API_TOKEN = os.getenv("THINGIVERSE_API_TOKEN", "")
+BAMBU_LAB_TOKEN = os.getenv("BAMBU_LAB_TOKEN", "")
+MYMINIFACTORY_API_KEY = os.getenv("MYMINIFACTORY_API_KEY", "")
+
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"

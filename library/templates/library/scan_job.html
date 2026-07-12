@@ -36,7 +36,15 @@
       <span class="text-muted scan-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>
     </div>
     <div class="scan-viewer-wrap">
-      <div class="scan-viewer-loading" id="scan-viewer-loading">Loading 3D model…</div>
+      <div class="scan-viewer-loading" id="scan-viewer-loading">
+        <div class="viewer-load-panel">
+          <p class="viewer-load-label">Preparing preview</p>
+          <div class="progress-track viewer-load-track" aria-hidden="true">
+            <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
+          </div>
+          <p class="viewer-load-percent">0%</p>
+        </div>
+      </div>
       <div class="scan-viewer-error hidden" id="scan-viewer-error">
         Could not load the 3D preview. Try downloading the GLB or re-run the scan.
       </div>
@@ -109,5 +117,6 @@
   </div>
 </div>
 
+<script src="{% static 'library/js/model_viewer_ui.js' %}"></script>
 <script src="{% static 'library/js/scan.js' %}"></script>
 {% endblock %}

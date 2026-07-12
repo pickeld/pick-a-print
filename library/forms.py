@@ -14,7 +14,10 @@ class LoginForm(AuthenticationForm):
 
 
 class UploadModelForm(forms.Form):
-    file = forms.FileField(label="STL file")
+    file = forms.FileField(
+        label="STL file",
+        widget=forms.FileInput(attrs={"accept": ".stl,model/stl", "required": True}),
+    )
     title = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={"placeholder": "Optional custom title"}),

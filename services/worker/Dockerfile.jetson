@@ -61,13 +61,13 @@ RUN git clone --depth 1 --branch "${COLMAP_VERSION}" https://github.com/colmap/c
       -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}" \
       -DGUI_ENABLED=OFF \
       -DTESTS_ENABLED=OFF \
-  && cmake --build /tmp/colmap/build -j"$(nproc)" \
+  && cmake --build /tmp/colmap/build -j2 \
   && cmake --install /tmp/colmap/build \
   && rm -rf /tmp/colmap \
   && colmap -h 2>&1 | head -3
 
 COPY requirements-photogrammetry.txt /app/
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements-photogrammetry.txt
+RUN pip3 install --no-cache-dir -r requirements-photogrammetry.txt
 
 COPY app/ /app/app/
 COPY scan.py /app/scan.py

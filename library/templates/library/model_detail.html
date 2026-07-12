@@ -1,10 +1,53 @@
 {% extends "library/base.html" %}
-{% load library_extras %}
+{% load static library_extras %}
 
 {% block title %}{{ model.title }} — Pick-a-Print{% endblock %}
 
+{% block head_extra %}
+{% if preview_file %}
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="detail-layout">
+<div class="detail-layout{% if preview_file %} detail-layout--with-viewer{% endif %}">
+  {% if preview_file %}
+  <section class="detail-preview detail-preview--viewer">
+    <div class="scan-viewer-header">
+      <h3>3D Preview</h3>
+      <span class="text-muted scan-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>
+    </div>
+    <div class="scan-viewer-wrap">
+      <div class="scan-viewer-loading" id="model-preview-loading">
+        <div class="viewer-load-panel">
+          <p class="viewer-load-label">Preparing preview</p>
+          <div class="progress-track viewer-load-track" aria-hidden="true">
+            <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
+          </div>
+          <p class="viewer-load-percent">0%</p>
+        </div>
+      </div>
+      <div class="scan-viewer-error hidden" id="model-preview-error">
+        Could not load the 3D preview.
+      </div>
+      <model-viewer
+        id="model-preview-viewer"
+        camera-controls
+        touch-action="pan-y"
+        interaction-prompt="auto"
+        shadow-intensity="0.4"
+        exposure="1"
+        auto-rotate
+        rotation-per-second="12deg"
+        camera-orbit="auto auto auto"
+        min-camera-orbit="auto auto 10%"
+        max-camera-orbit="auto auto 400%"
+        src="{% url 'model_preview' pk=model.pk file_id=preview_file.pk %}?inline=1"
+        alt="{{ model.title }} 3D preview"
+      ></model-viewer>
+    </div>
+  </section>
+  {% else %}
   <div class="detail-preview">
     {% if model.thumbnail_url %}
       <img src="{{ model.thumbnail_url }}" alt="{{ model.title }}">
@@ -12,6 +55,7 @@
       <div class="placeholder">🧊</div>
     {% endif %}
   </div>
+  {% endif %}
 
   <div class="detail-info">
     <h2>{{ model.title }}</h2>
@@ -51,6 +95,16 @@
       {% endif %}
     </ul>
 
+    {% if model.source_type == 'link' and model.metadata.download_status == 'pending' and not model.files.all %}
+    <div class="form-card" style="max-width:none;margin-top:1rem">
+      <p class="text-muted" style="margin:0">Downloading model files from {{ model.source_site|site_label }}…</p>
+    </div>
+    {% elif model.metadata.download_error and not model.files.all %}
+    <div class="form-card" style="max-width:none;margin-top:1rem">
+      <p class="text-muted" style="margin:0">Could not download files automatically: {{ model.metadata.download_error }}</p>
+    </div>
+    {% endif %}
+
     {% if model.files.all %}
     <div class="form-card" style="max-width:none;margin-top:1rem">
       <h3 style="margin:0 0 1rem;font-size:1rem">File Analysis</h3>
@@ -64,6 +118,11 @@
           {% endif %}
           {% if f.volume_cm3 %}<li><span class="label">Volume</span> ~{{ f.volume_cm3|floatformat:1 }} cm³</li>{% endif %}
         </ul>
+        {% if f.file %}
+        <div class="form-actions" style="margin-top:0.75rem">
+          <a href="{{ f.file.url }}" class="btn btn-secondary" download="{{ f.original_name }}">Download {{ f.file_type|upper }}</a>
+        </div>
+        {% endif %}
       {% endfor %}
     </div>
     {% endif %}
@@ -113,4 +172,9 @@
     </div>
   </div>
 </div>
+
+{% if preview_file %}
+<script src="{% static 'library/js/model_viewer_ui.js' %}"></script>
+<script src="{% static 'library/js/model_preview.js' %}"></script>
+{% endif %}
 {% endblock %}

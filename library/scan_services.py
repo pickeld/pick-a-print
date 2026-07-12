@@ -186,7 +186,10 @@ def create_scan_job(
 
     storage = get_storage()
     if isinstance(storage, MinioStorage):
-        storage.upload_workspace(job_id, ws.root)
+        try:
+            storage.upload_workspace(job_id, ws.root)
+        except Exception as exc:
+            raise ScanError(f"Could not upload scan inputs for remote worker: {exc}") from exc
 
     queue_scan(job_id)
     return scan_job
@@ -345,6 +348,13 @@ def import_scan_to_library(scan_job: ScanJob) -> ScanJob:
         "fetch_status": "scan",
     }
     model.save(update_fields=["source_site", "metadata"])
+
+    model_file = model.files.first()
+    glb_source = outputs.get("glb")
+    if model_file and glb_source:
+        from library.stl_preview import copy_preview_glb
+
+        copy_preview_glb(glb_source, Path(model_file.file.path))
 
     scan_job.saved_model = model
     scan_job.save(update_fields=["saved_model", "updated_at"])

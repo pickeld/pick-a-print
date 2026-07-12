@@ -20,6 +20,7 @@
   const modelViewer = document.getElementById("scan-model-viewer");
   const viewerLoading = document.getElementById("scan-viewer-loading");
   const viewerError = document.getElementById("scan-viewer-error");
+  let viewerUi = null;
 
   let polling = !document.getElementById("scan-stage-badge")?.textContent?.match(/COMPLETED|FAILED/);
 
@@ -38,27 +39,13 @@
   }
 
   function hideViewerLoading() {
-    if (viewerLoading) viewerLoading.classList.add("hidden");
-  }
-
-  function showViewerError(message) {
-    hideViewerLoading();
-    if (viewerError) {
-      viewerError.textContent = message;
-      viewerError.classList.remove("hidden");
-    }
-    if (modelViewer) modelViewer.classList.add("hidden");
+    viewerUi?.hideLoading();
   }
 
   function bindViewerEvents() {
     if (!modelViewer) return;
-    modelViewer.addEventListener("load", () => {
-      hideViewerLoading();
-      if (viewerError) viewerError.classList.add("hidden");
-      modelViewer.classList.remove("hidden");
-    });
-    modelViewer.addEventListener("error", () => {
-      showViewerError("Could not load the 3D preview. The GLB file may be invalid — try re-running the scan.");
+    viewerUi = window.PickAPrintViewer?.bind(modelViewer, viewerLoading, viewerError, {
+      errorMessage: "Could not load the 3D preview. The GLB file may be invalid — try re-running the scan.",
     });
     if (modelViewer.loaded) {
       hideViewerLoading();
@@ -69,9 +56,7 @@
     if (!viewerSection || !modelViewer || !viewerFile) return;
     const src = downloadUrl(viewerFile, true);
     if (modelViewer.getAttribute("src") !== src) {
-      if (viewerLoading) viewerLoading.classList.remove("hidden");
-      if (viewerError) viewerError.classList.add("hidden");
-      modelViewer.classList.remove("hidden");
+      viewerUi?.showLoading();
       modelViewer.setAttribute("src", src);
     }
     viewerSection.classList.remove("hidden");

@@ -9,12 +9,20 @@
     "http://127.0.0.1:8000/*",
     "http://localhost:8001/*",
     "http://127.0.0.1:8001/*",
+    "http://localhost:8002/*",
+    "http://127.0.0.1:8002/*",
     "https://www.printables.com/*",
     "https://printables.com/*",
     "https://makerworld.com/*",
     "https://www.makerworld.com/*",
     "https://thangs.com/*",
-    "https://www.thangs.com/*"
+    "https://www.thangs.com/*",
+    "https://www.thingiverse.com/*",
+    "https://thingiverse.com/*",
+    "https://www.myminifactory.com/*",
+    "https://myminifactory.com/*",
+    "https://cults3d.com/*",
+    "https://www.cults3d.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -31,7 +39,13 @@
         "https://makerworld.com/*",
         "https://www.makerworld.com/*",
         "https://thangs.com/*",
-        "https://www.thangs.com/*"
+        "https://www.thangs.com/*",
+        "https://www.thingiverse.com/*",
+        "https://thingiverse.com/*",
+        "https://www.myminifactory.com/*",
+        "https://myminifactory.com/*",
+        "https://cults3d.com/*",
+        "https://www.cults3d.com/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"]

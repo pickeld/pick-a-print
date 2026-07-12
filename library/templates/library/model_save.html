@@ -1,6 +1,11 @@
 {% extends "library/base.html" %}
+{% load static %}
 
 {% block title %}Save Model — Pick-a-Print{% endblock %}
+
+{% block head_extra %}
+<script src="{% static 'library/js/save.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -15,60 +20,85 @@
 
 {% if active_tab == 'upload' %}
 <div class="form-card">
-  <form method="post" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data" id="upload-stl-form">
     {% csrf_token %}
     <input type="hidden" name="save_upload" value="1">
 
     <div class="form-group">
-      <label>{{ upload_form.file.label }}</label>
+      <label for="{{ upload_form.file.id_for_label }}">{{ upload_form.file.label }}</label>
       {{ upload_form.file }}
+      <div class="helptext">Only .stl files are supported (max {{ max_upload_size_mb }} MB).</div>
+      {% if upload_form.file.errors %}
+        <ul class="errorlist">{% for e in upload_form.file.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     <div class="form-group">
-      <label>{{ upload_form.title.label }}</label>
+      <label for="{{ upload_form.title.id_for_label }}">{{ upload_form.title.label }}</label>
       {{ upload_form.title }}
+      {% if upload_form.title.errors %}
+        <ul class="errorlist">{% for e in upload_form.title.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     <div class="form-group">
-      <label>{{ upload_form.tag_names.label }}</label>
+      <label for="{{ upload_form.tag_names.id_for_label }}">{{ upload_form.tag_names.label }}</label>
       {{ upload_form.tag_names }}
+      {% if upload_form.tag_names.errors %}
+        <ul class="errorlist">{% for e in upload_form.tag_names.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     {% if upload_form.collections.field.queryset %}
     <div class="form-group">
       <label>{{ upload_form.collections.label }}</label>
       {{ upload_form.collections }}
+      {% if upload_form.collections.errors %}
+        <ul class="errorlist">{% for e in upload_form.collections.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     {% endif %}
     <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Upload to Library</button>
+      <button type="submit" class="btn btn-primary" id="upload-stl-btn">Upload to Library</button>
     </div>
   </form>
 </div>
 {% else %}
 <div class="form-card">
-  <form method="post">
+  <form method="post" id="save-url-form">
     {% csrf_token %}
     <input type="hidden" name="save_url" value="1">
 
     <div class="form-group">
-      <label>{{ url_form.url.label }}</label>
+      <label for="{{ url_form.url.id_for_label }}">{{ url_form.url.label }}</label>
       {{ url_form.url }}
+      {% if url_form.url.errors %}
+        <ul class="errorlist">{% for e in url_form.url.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     <div class="form-group">
-      <label>{{ url_form.tag_names.label }}</label>
+      <label for="{{ url_form.tag_names.id_for_label }}">{{ url_form.tag_names.label }}</label>
       {{ url_form.tag_names }}
       {% if url_form.tag_names.help_text %}<div class="helptext">{{ url_form.tag_names.help_text }}</div>{% endif %}
+      {% if url_form.tag_names.errors %}
+        <ul class="errorlist">{% for e in url_form.tag_names.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     {% if url_form.collections.field.queryset %}
     <div class="form-group">
       <label>{{ url_form.collections.label }}</label>
       {{ url_form.collections }}
+      {% if url_form.collections.errors %}
+        <ul class="errorlist">{% for e in url_form.collections.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     {% endif %}
     <div class="form-group">
-      <label>Status</label>
+      <label for="{{ url_form.status.id_for_label }}">Status</label>
       {{ url_form.status }}
+      {% if url_form.status.errors %}
+        <ul class="errorlist">{% for e in url_form.status.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
     </div>
     <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Save to Library</button>
+      <button type="submit" class="btn btn-primary" id="save-url-btn">Save to Library</button>
     </div>
   </form>
 </div>

@@ -6,7 +6,9 @@ import requests
 from bs4 import BeautifulSoup
 from django.conf import settings
 
-from library.adapters.base import FetchedMetadata, normalize_url, site_from_url
+from library.adapters.base import FetchedMetadata, canonicalize_model_url, normalize_url, site_from_url
+
+BAMBU_API = "https://api.bambulab.com"
 
 
 class GenericOpenGraphAdapter:
@@ -68,12 +70,14 @@ class PrintablesAdapter(GenericOpenGraphAdapter):
         return "printables.com" in host
 
     def fetch_metadata(self, url: str) -> FetchedMetadata:
-        url = normalize_url(url)
+        url = canonicalize_model_url(url)
         fetched = super().fetch_metadata(url)
         external_id = self._extract_id(url)
-        designer = fetched.metadata.get("author", "")
-        if isinstance(designer, dict):
-            designer = designer.get("name", "")
+        title, designer = self._parse_printables_title(fetched.title)
+        if not designer:
+            author = fetched.metadata.get("author", "")
+            if isinstance(author, dict):
+                designer = author.get("name", "")
 
         likes = fetched.metadata.get("interactionStatistic", "")
         extra = {
@@ -82,7 +86,7 @@ class PrintablesAdapter(GenericOpenGraphAdapter):
         }
 
         return FetchedMetadata(
-            title=fetched.title,
+            title=title,
             designer=str(designer) if designer else "",
             license=fetched.license,
             thumbnail_url=fetched.thumbnail_url,
@@ -90,6 +94,16 @@ class PrintablesAdapter(GenericOpenGraphAdapter):
             external_id=external_id,
             metadata={**fetched.metadata, **extra},
         )
+
+    def _parse_printables_title(self, raw: str) -> tuple[str, str]:
+        designer = ""
+        title = raw.strip()
+        if " by " in title:
+            title, rest = title.split(" by ", 1)
+            designer = rest.split(" | ", 1)[0].strip()
+        if " | " in title:
+            title = title.split(" | ", 1)[0]
+        return title.strip(), designer
 
     def _extract_id(self, url: str) -> str:
         match = re.search(r"/model/(\d+)", url)
@@ -104,10 +118,30 @@ class MakerWorldAdapter(GenericOpenGraphAdapter):
         return "makerworld.com" in host
 
     def fetch_metadata(self, url: str) -> FetchedMetadata:
-        url = normalize_url(url)
-        fetched = super().fetch_metadata(url)
+        url = canonicalize_model_url(url)
         external_id = self._extract_id(url)
+        if external_id:
+            try:
+                response = requests.get(
+                    f"{BAMBU_API}/v1/design-service/design/{external_id}",
+                    headers={"User-Agent": "pick-a-print/1.0"},
+                    timeout=settings.METADATA_FETCH_TIMEOUT,
+                )
+                if response.ok:
+                    design = response.json()
+                    creator = (design.get("designCreator") or {}).get("name", "")
+                    return FetchedMetadata(
+                        title=design.get("title") or url,
+                        designer=creator,
+                        thumbnail_url=design.get("coverUrl", ""),
+                        source_site="makerworld.com",
+                        external_id=external_id,
+                        metadata={"platform": "makerworld", "fetch_status": "complete"},
+                    )
+            except Exception:
+                pass
 
+        fetched = super().fetch_metadata(url)
         return FetchedMetadata(
             title=fetched.title,
             designer=fetched.designer,
@@ -131,7 +165,7 @@ class ThangsAdapter(GenericOpenGraphAdapter):
         return "thangs.com" in host
 
     def fetch_metadata(self, url: str) -> FetchedMetadata:
-        url = normalize_url(url)
+        url = canonicalize_model_url(url)
         fetched = super().fetch_metadata(url)
         external_id = self._extract_id(url)
         designer = fetched.metadata.get("author", "")
@@ -150,4 +184,89 @@ class ThangsAdapter(GenericOpenGraphAdapter):
 
     def _extract_id(self, url: str) -> str:
         match = re.search(r"/model/([^/?#]+)", url) or re.search(r"/designer/[^/]+/([^/?#]+)", url)
+        if match:
+            slug = match.group(1)
+            trailing = re.search(r"-(\d+)$", slug)
+            if trailing:
+                return trailing.group(1)
+            return slug
+        match = re.search(r"/m/(\d+)", url)
+        return match.group(1) if match else ""
+
+
+class ThingiverseAdapter(GenericOpenGraphAdapter):
+    site_name = "thingiverse"
+
+    def can_handle(self, url: str) -> bool:
+        host = urlparse(url).netloc.lower()
+        return "thingiverse.com" in host
+
+    def fetch_metadata(self, url: str) -> FetchedMetadata:
+        url = canonicalize_model_url(url)
+        external_id = self._extract_id(url)
+        fetched = super().fetch_metadata(url)
+        return FetchedMetadata(
+            title=fetched.title,
+            designer=fetched.designer,
+            license=fetched.license,
+            thumbnail_url=fetched.thumbnail_url,
+            source_site="thingiverse.com",
+            external_id=external_id,
+            metadata={**fetched.metadata, "platform": "thingiverse"},
+        )
+
+    def _extract_id(self, url: str) -> str:
+        match = re.search(r"/thing:(\d+)", url)
+        return match.group(1) if match else ""
+
+
+class MyMiniFactoryAdapter(GenericOpenGraphAdapter):
+    site_name = "myminifactory"
+
+    def can_handle(self, url: str) -> bool:
+        host = urlparse(url).netloc.lower()
+        return "myminifactory.com" in host
+
+    def fetch_metadata(self, url: str) -> FetchedMetadata:
+        url = canonicalize_model_url(url)
+        external_id = self._extract_id(url)
+        fetched = super().fetch_metadata(url)
+        return FetchedMetadata(
+            title=fetched.title,
+            designer=fetched.designer,
+            license=fetched.license,
+            thumbnail_url=fetched.thumbnail_url,
+            source_site="myminifactory.com",
+            external_id=external_id,
+            metadata={**fetched.metadata, "platform": "myminifactory"},
+        )
+
+    def _extract_id(self, url: str) -> str:
+        match = re.search(r"/object/[\w-]+-(\d+)", url) or re.search(r"/object/(\d+)", url)
+        return match.group(1) if match else ""
+
+
+class Cults3dAdapter(GenericOpenGraphAdapter):
+    site_name = "cults3d"
+
+    def can_handle(self, url: str) -> bool:
+        host = urlparse(url).netloc.lower()
+        return "cults3d.com" in host
+
+    def fetch_metadata(self, url: str) -> FetchedMetadata:
+        url = canonicalize_model_url(url)
+        external_id = self._extract_id(url)
+        fetched = super().fetch_metadata(url)
+        return FetchedMetadata(
+            title=fetched.title,
+            designer=fetched.designer,
+            license=fetched.license,
+            thumbnail_url=fetched.thumbnail_url,
+            source_site="cults3d.com",
+            external_id=external_id,
+            metadata={**fetched.metadata, "platform": "cults3d"},
+        )
+
+    def _extract_id(self, url: str) -> str:
+        match = re.search(r"/3d-model/[\w-]+/([\w-]+)", url)
         return match.group(1) if match else ""

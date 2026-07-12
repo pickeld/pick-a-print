@@ -17,6 +17,12 @@ SITE_LABELS = {
     "makerworld.com": "MakerWorld",
     "thangs": "Thangs",
     "thangs.com": "Thangs",
+    "thingiverse": "Thingiverse",
+    "thingiverse.com": "Thingiverse",
+    "myminifactory": "MyMiniFactory",
+    "myminifactory.com": "MyMiniFactory",
+    "cults3d": "Cults3D",
+    "cults3d.com": "Cults3D",
     "upload": "Upload",
 }
 

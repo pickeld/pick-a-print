@@ -1,0 +1,23 @@
+<form method="post" id="model-bulk-form" class="bulk-actions-bar">
+  {% csrf_token %}
+  <input type="hidden" name="bulk_delete" value="1">
+
+  <label class="bulk-select-all">
+    <input type="checkbox" id="select-all-models" aria-label="Select all models">
+    <span>Select all</span>
+  </label>
+
+  <span class="bulk-selection-count" id="bulk-selection-count" hidden>
+    <span id="bulk-selection-number">0</span> selected
+  </span>
+
+  <button
+    type="submit"
+    class="btn btn-danger"
+    id="bulk-delete-btn"
+    disabled
+    data-confirm="Delete the selected models from your library? This cannot be undone."
+  >
+    Delete selected
+  </button>
+</form>

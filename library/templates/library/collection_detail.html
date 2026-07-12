@@ -1,24 +1,38 @@
 {% extends "library/base.html" %}
+{% load static %}
 
 {% block title %}{{ collection.name }} — Pick-a-Print{% endblock %}
 
-{% block content %}
-<div class="page-header">
-  <h2>{{ collection.name }}</h2>
-  {% if collection.description %}<p>{{ collection.description }}</p>{% endif %}
-</div>
+{% block head_extra %}
+<script src="{% static 'library/js/model_bulk_edit.js' %}" defer></script>
+{% endblock %}
 
-{% if models %}
-  <div class="model-grid">
-    {% for model in models %}
-      {% include "library/partials/model_card.html" %}
-    {% endfor %}
+{% block content %}
+<div class="model-bulk-page" id="collection-page">
+  <div class="page-header page-header--with-actions">
+    <div>
+      <h2>{{ collection.name }}</h2>
+      {% if collection.description %}<p>{{ collection.description }}</p>{% endif %}
+    </div>
+    {% if models %}
+      {% include "library/partials/bulk_edit_button.html" %}
+    {% endif %}
   </div>
-{% else %}
-  <div class="empty-state">
-    <div class="icon">📁</div>
-    <p>This collection is empty. Save a model and add it here.</p>
-    <a href="{% url 'model_save' %}" class="btn btn-primary" style="margin-top:1rem">+ Save a model</a>
-  </div>
-{% endif %}
+
+  {% if models %}
+    {% include "library/partials/bulk_delete_bar.html" %}
+
+    <div class="model-grid" id="model-bulk-grid">
+      {% for model in models %}
+        {% include "library/partials/model_card.html" with selectable=True %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">📁</div>
+      <p>This collection is empty. Save a model and add it here.</p>
+      <a href="{% url 'model_save' %}" class="btn btn-primary" style="margin-top:1rem">+ Save a model</a>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

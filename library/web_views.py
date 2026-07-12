@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -8,7 +9,7 @@ from django.views.decorators.http import require_http_methods
 from rest_framework.authtoken.models import Token
 
 from library.forms import CollectionForm, LoginForm, ModelUpdateForm, SaveModelForm, ScanUploadForm, SearchForm, UploadModelForm
-from library.models import Collection, ModelStatus, SavedModel, ScanJob
+from library.models import Collection, ModelFile, ModelStatus, SavedModel, ScanJob
 from library.scan_services import (
     ScanError,
     build_status_payload,
@@ -25,6 +26,41 @@ from library.services import ModelSaveError, save_model_from_upload, save_model_
 
 def _user_collections(user):
     return Collection.objects.filter(user=user).annotate(model_count=Count("models"))
+
+
+def _parse_bulk_delete_ids(request):
+    try:
+        return [int(value) for value in request.POST.getlist("model_ids")]
+    except ValueError:
+        return None
+
+
+def _redirect_with_query(request):
+    if request.GET:
+        return redirect(f"{request.path}?{request.GET.urlencode()}")
+    return redirect(request.path)
+
+
+def _handle_bulk_delete(request, queryset, *, empty_message="Select at least one model to delete."):
+    model_ids = _parse_bulk_delete_ids(request)
+    if model_ids is None:
+        messages.error(request, "Invalid selection.")
+        return None
+
+    if not model_ids:
+        messages.error(request, empty_message)
+        return None
+
+    to_delete = queryset.filter(pk__in=model_ids)
+    count = to_delete.count()
+    if count == 0:
+        messages.error(request, "No matching models found.")
+        return None
+
+    to_delete.delete()
+    label = "model" if count == 1 else "models"
+    messages.success(request, f"Deleted {count} {label} from your library.")
+    return count
 
 
 @require_http_methods(["GET", "POST"])
@@ -67,6 +103,7 @@ def home_view(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def models_list_view(request):
     form = SearchForm(request.GET or None)
     queryset = SavedModel.objects.filter(user=request.user).prefetch_related("tags", "collections")
@@ -87,6 +124,11 @@ def models_list_view(request):
     if source_site:
         queryset = queryset.filter(source_site__icontains=source_site)
 
+    if request.method == "POST" and "bulk_delete" in request.POST:
+        if _handle_bulk_delete(request, queryset) is not None:
+            return _redirect_with_query(request)
+        return _redirect_with_query(request)
+
     return render(
         request,
         "library/models_list.html",
@@ -102,63 +144,94 @@ def model_save_view(request):
     active_tab = request.GET.get("tab", "url")
 
     if request.method == "POST":
-        if "save_url" in request.POST and url_form.is_valid():
-            tag_names = [t.strip() for t in url_form.cleaned_data["tag_names"].split(",") if t.strip()]
-            collection_ids = list(url_form.cleaned_data["collections"].values_list("id", flat=True))
-            try:
-                model = save_model_from_url(
-                    user=request.user,
-                    url=url_form.cleaned_data["url"],
-                    collection_ids=collection_ids or None,
-                    tag_names=tag_names or None,
-                    status=url_form.cleaned_data.get("status"),
-                )
-            except ModelSaveError as exc:
-                messages.error(request, str(exc))
-            else:
-                verb = "saved" if getattr(model, "_was_created", True) else "updated"
-                messages.success(request, f'"{model.title}" {verb} to your library.')
-                return redirect("model_detail", pk=model.pk)
+        if "save_url" in request.POST:
             active_tab = "url"
+            if url_form.is_valid():
+                tag_names = [t.strip() for t in url_form.cleaned_data["tag_names"].split(",") if t.strip()]
+                collection_ids = list(url_form.cleaned_data["collections"].values_list("id", flat=True))
+                try:
+                    model = save_model_from_url(
+                        user=request.user,
+                        url=url_form.cleaned_data["url"],
+                        collection_ids=collection_ids or None,
+                        tag_names=tag_names or None,
+                        status=url_form.cleaned_data.get("status"),
+                    )
+                except ModelSaveError as exc:
+                    messages.error(request, str(exc))
+                else:
+                    verb = "saved" if getattr(model, "_was_created", True) else "updated"
+                    messages.success(request, f'"{model.title}" {verb} to your library.')
+                    return redirect("model_detail", pk=model.pk)
 
-        elif "save_upload" in request.POST and upload_form.is_valid():
-            tag_names = [t.strip() for t in upload_form.cleaned_data["tag_names"].split(",") if t.strip()]
-            collection_ids = list(upload_form.cleaned_data["collections"].values_list("id", flat=True))
-            try:
-                model = save_model_from_upload(
-                    user=request.user,
-                    uploaded_file=upload_form.cleaned_data["file"],
-                    title=upload_form.cleaned_data.get("title") or None,
-                    collection_ids=collection_ids or None,
-                    tag_names=tag_names or None,
-                )
-            except ModelSaveError as exc:
-                messages.error(request, str(exc))
-            else:
-                messages.success(request, f'"{model.title}" uploaded to your library.')
-                return redirect("model_detail", pk=model.pk)
+        elif "save_upload" in request.POST:
             active_tab = "upload"
+            if upload_form.is_valid():
+                tag_names = [t.strip() for t in upload_form.cleaned_data["tag_names"].split(",") if t.strip()]
+                collection_ids = list(upload_form.cleaned_data["collections"].values_list("id", flat=True))
+                try:
+                    model = save_model_from_upload(
+                        user=request.user,
+                        uploaded_file=upload_form.cleaned_data["file"],
+                        title=upload_form.cleaned_data.get("title") or None,
+                        collection_ids=collection_ids or None,
+                        tag_names=tag_names or None,
+                    )
+                except ModelSaveError as exc:
+                    messages.error(request, str(exc))
+                else:
+                    messages.success(request, f'"{model.title}" uploaded to your library.')
+                    return redirect("model_detail", pk=model.pk)
+            elif upload_form.errors.get("file"):
+                messages.error(request, "Choose an STL file before uploading.")
 
     return render(
         request,
         "library/model_save.html",
-        {"url_form": url_form, "upload_form": upload_form, "active_tab": active_tab},
+        {
+            "url_form": url_form,
+            "upload_form": upload_form,
+            "active_tab": active_tab,
+            "max_upload_size_mb": settings.MAX_UPLOAD_SIZE_MB,
+        },
     )
 
 
 @login_required
 def settings_view(request):
     active_tab = request.GET.get("tab", "api")
-    if active_tab not in ("api", "about"):
+    if active_tab not in ("api", "about", "downloads"):
         active_tab = "api"
 
     token, _ = Token.objects.get_or_create(user=request.user)
     api_base = request.build_absolute_uri("/api").rstrip("/")
 
+    from django.conf import settings as django_settings
+
     context = {
         "api_token": token.key,
         "api_base": api_base,
         "active_tab": active_tab,
+        "download_integrations": [
+            {"site": "Printables", "status": "ready", "note": "Works out of the box"},
+            {"site": "Thangs", "status": "ready", "note": "May be blocked by Cloudflare from some servers"},
+            {
+                "site": "MakerWorld",
+                "status": "configured" if django_settings.BAMBU_LAB_TOKEN else "needs_token",
+                "note": "Set BAMBU_LAB_TOKEN (MakerWorld cookie: token)",
+            },
+            {
+                "site": "Thingiverse",
+                "status": "configured" if django_settings.THINGIVERSE_API_TOKEN else "needs_token",
+                "note": "Set THINGIVERSE_API_TOKEN from thingiverse.com/apps",
+            },
+            {
+                "site": "MyMiniFactory",
+                "status": "configured" if django_settings.MYMINIFACTORY_API_KEY else "needs_token",
+                "note": "Set MYMINIFACTORY_API_KEY from myminifactory.com API",
+            },
+            {"site": "Cults3D", "status": "unsupported", "note": "Metadata only — Cults does not expose file downloads via API"},
+        ],
     }
 
     from library.dependency_info import CACHE_TTL_SECONDS, get_cached_updates_available, peek_cached_about
@@ -207,7 +280,37 @@ def model_detail_view(request, pk):
             messages.success(request, "Model updated.")
             return redirect("model_detail", pk=model.pk)
 
-    return render(request, "library/model_detail.html", {"model": model, "form": form})
+    return render(request, "library/model_detail.html", {"model": model, "form": form, "preview_file": _preview_file_for_model(model)})
+
+
+def _preview_file_for_model(model: SavedModel) -> ModelFile | None:
+    return model.files.filter(file_type__in=["stl", "3mf"]).first()
+
+
+@login_required
+def model_preview_view(request, pk, file_id):
+    model = get_object_or_404(SavedModel, pk=pk, user=request.user)
+    model_file = get_object_or_404(ModelFile, pk=file_id, model=model, file_type__in=["stl", "3mf"])
+
+    from pathlib import Path
+
+    from library.stl_preview import ensure_preview_glb
+
+    glb_path = ensure_preview_glb(Path(model_file.file.path))
+    if not glb_path:
+        messages.error(request, "Could not generate a 3D preview for this file.")
+        return redirect("model_detail", pk=model.pk)
+
+    inline = request.GET.get("inline") == "1"
+    response = FileResponse(
+        glb_path.open("rb"),
+        as_attachment=not inline,
+        filename=glb_path.name,
+        content_type="model/gltf-binary",
+    )
+    if inline:
+        response["Cache-Control"] = "private, max-age=3600"
+    return response
 
 
 @login_required
@@ -230,9 +333,17 @@ def collections_list_view(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def collection_detail_view(request, slug):
     collection = get_object_or_404(Collection, slug=slug, user=request.user)
-    models = collection.models.prefetch_related("tags").order_by("-created_at")
+    models = collection.models.filter(user=request.user).prefetch_related("tags").order_by("-created_at")
+
+    if request.method == "POST" and "bulk_delete" in request.POST:
+        scoped = SavedModel.objects.filter(user=request.user, collections=collection)
+        if _handle_bulk_delete(request, scoped) is not None:
+            return redirect("collection_detail", slug=collection.slug)
+        return redirect("collection_detail", slug=collection.slug)
+
     return render(
         request,
         "library/collection_detail.html",

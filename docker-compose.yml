@@ -57,6 +57,9 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: scans
+      THINGIVERSE_API_TOKEN: ${THINGIVERSE_API_TOKEN:-}
+      BAMBU_LAB_TOKEN: ${BAMBU_LAB_TOKEN:-}
+      MYMINIFACTORY_API_KEY: ${MYMINIFACTORY_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -76,6 +79,9 @@ services:
       DATABASE_URL: postgres://pick_a_print:pick_a_print@db:5432/pick_a_print
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      THINGIVERSE_API_TOKEN: ${THINGIVERSE_API_TOKEN:-}
+      BAMBU_LAB_TOKEN: ${BAMBU_LAB_TOKEN:-}
+      MYMINIFACTORY_API_KEY: ${MYMINIFACTORY_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

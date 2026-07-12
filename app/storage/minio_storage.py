@@ -7,7 +7,7 @@ from app.storage.local import LocalStorage
 
 
 class MinioStorage(LocalStorage):
-    """S3-compatible storage via MinIO. Falls back to local paths when boto3/minio unavailable."""
+    """S3-compatible storage via MinIO for remote scan workers."""
 
     def __init__(self, root: Path, endpoint: str, access_key: str, secret_key: str, bucket: str) -> None:
         super().__init__(root)
@@ -22,29 +22,27 @@ class MinioStorage(LocalStorage):
             return self._client
         try:
             from minio import Minio
+        except ImportError as exc:
+            raise RuntimeError(
+                "MINIO_ENDPOINT is set but the minio package is not installed"
+            ) from exc
 
-            self._client = Minio(
-                self.endpoint.replace("http://", "").replace("https://", ""),
-                access_key=self.access_key,
-                secret_key=self.secret_key,
-                secure=self.endpoint.startswith("https"),
-            )
-            if not self._client.bucket_exists(self.bucket):
-                self._client.make_bucket(self.bucket)
-            return self._client
-        except ImportError:
-            return None
+        self._client = Minio(
+            self.endpoint.replace("http://", "").replace("https://", ""),
+            access_key=self.access_key,
+            secret_key=self.secret_key,
+            secure=self.endpoint.startswith("https"),
+        )
+        if not self._client.bucket_exists(self.bucket):
+            self._client.make_bucket(self.bucket)
+        return self._client
 
     def upload_file(self, local_path: Path, object_key: str) -> None:
         client = self._get_client()
-        if client is None:
-            return
         client.fput_object(self.bucket, object_key, str(local_path))
 
     def download_prefix(self, job_id: str, local_ws: Path) -> None:
         client = self._get_client()
-        if client is None:
-            return
         prefix = f"jobs/{job_id}/"
         local_ws.mkdir(parents=True, exist_ok=True)
         for obj in client.list_objects(self.bucket, prefix=prefix, recursive=True):
@@ -58,8 +56,6 @@ class MinioStorage(LocalStorage):
     def upload_workspace(self, job_id: str, ws_root: Path) -> None:
         """Upload inputs and job state so a remote GPU worker can process the scan."""
         client = self._get_client()
-        if client is None:
-            return
         ws_root = Path(ws_root)
         candidates: list[Path] = []
         job_json = ws_root / "job.json"
@@ -76,8 +72,6 @@ class MinioStorage(LocalStorage):
     def push_job_state(self, job_id: str, ws_root: Path) -> None:
         """Upload pipeline state and outputs after remote processing."""
         client = self._get_client()
-        if client is None:
-            return
         ws_root = Path(ws_root)
         paths: list[Path] = []
         job_json = ws_root / "job.json"
@@ -94,8 +88,6 @@ class MinioStorage(LocalStorage):
     def pull_job_state(self, job_id: str, ws_root: Path) -> None:
         """Refresh local job.json and outputs from object storage."""
         client = self._get_client()
-        if client is None:
-            return
         ws_root = Path(ws_root)
         ws_root.mkdir(parents=True, exist_ok=True)
         prefixes = (f"jobs/{job_id}/job.json", f"jobs/{job_id}/output/")
@@ -110,8 +102,6 @@ class MinioStorage(LocalStorage):
 
     def sync_outputs(self, job_id: str, output_dir: Path) -> None:
         client = self._get_client()
-        if client is None:
-            return
         for path in output_dir.rglob("*"):
             if path.is_file():
                 key = f"jobs/{job_id}/output/{path.relative_to(output_dir)}"
