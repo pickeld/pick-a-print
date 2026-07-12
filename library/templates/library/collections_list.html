@@ -8,7 +8,7 @@
   <p>Organize models like playlists — Kids, Tools, Gifts...</p>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 320px;gap:2rem;align-items:start">
+<div class="collections-page-layout">
   <div>
     {% if collections %}
       <div class="collection-grid">
@@ -29,7 +29,7 @@
   </div>
 
   <div class="form-card">
-    <h3 style="margin:0 0 1rem;font-size:1rem">New Collection</h3>
+    <h3 class="collections-form-title">New Collection</h3>
     <form method="post">
       {% csrf_token %}
       <div class="form-group">
