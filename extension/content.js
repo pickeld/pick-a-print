@@ -5,7 +5,7 @@
   btn.id = "tdl-save-btn";
   btn.type = "button";
   btn.textContent = "Save to Library";
-  btn.title = "Save this model to your 3D Library";
+  btn.title = "Save this model to Pick-a-Print";
 
   btn.addEventListener("click", async () => {
     btn.disabled = true;

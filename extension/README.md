@@ -1,4 +1,4 @@
-# 3D Library Browser Extension
+# Pick-a-Print Browser Extension
 
 Chrome extension (Manifest V3) to save models from supported sites.
 

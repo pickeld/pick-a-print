@@ -1,4 +1,4 @@
-# Personal 3D Printing Library
+# Pick-a-Print
 
 Django + DRF app for saving, organizing, and searching 3D models from across the web.
 

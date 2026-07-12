@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "3D Library — Save",
+  "name": "Pick-a-Print — Save",
   "version": "0.1.0",
   "description": "Save 3D models from Printables, MakerWorld, Thangs and more to your personal library.",
   "permissions": ["storage", "activeTab"],
@@ -18,7 +18,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Save to 3D Library"
+    "default_title": "Save to Pick-a-Print"
   },
   "background": {
     "service_worker": "background.js"

@@ -2,13 +2,13 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: 3d_collection
-      POSTGRES_USER: 3d_collection
-      POSTGRES_PASSWORD: 3d_collection
+      POSTGRES_DB: pick_a_print
+      POSTGRES_USER: pick_a_print
+      POSTGRES_PASSWORD: pick_a_print
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U 3d_collection -d 3d_collection"]
+      test: ["CMD-SHELL", "pg_isready -U pick_a_print -d pick_a_print"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -45,8 +45,8 @@ services:
     environment:
       DEBUG: "True"
       SECRET_KEY: dev-docker-secret-change-in-production
-      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
-      DATABASE_URL: postgres://3d_collection:3d_collection@db:5432/3d_collection
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0,192.168.127.252
+      DATABASE_URL: postgres://pick_a_print:pick_a_print@db:5432/pick_a_print
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
       PIPELINE_DATA_DIR: /data/jobs
@@ -67,7 +67,7 @@ services:
     environment:
       DEBUG: "True"
       SECRET_KEY: dev-docker-secret-change-in-production
-      DATABASE_URL: postgres://3d_collection:3d_collection@db:5432/3d_collection
+      DATABASE_URL: postgres://pick_a_print:pick_a_print@db:5432/pick_a_print
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     depends_on:
@@ -90,7 +90,7 @@ services:
       PIPELINE_DATA_DIR: /data/jobs
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      DATABASE_URL: postgres://3d_collection:3d_collection@db:5432/3d_collection
+      DATABASE_URL: postgres://pick_a_print:pick_a_print@db:5432/pick_a_print
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
