@@ -168,7 +168,9 @@ class ReconstructionPipeline:
 
     def _stage_exporting(self) -> None:
         ply = self.ws.output_ply()
-        self.trimesh.export_formats(ply, self.ws.output_obj(), self.ws.output_glb())
+        result = self.trimesh.export_formats(ply, self.ws.output_obj(), self.ws.output_glb())
+        if not result.ok:
+            raise StageError(result.message)
         result = self.blender.export_stl(
             ply,
             self.ws.output_stl(),

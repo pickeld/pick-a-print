@@ -49,18 +49,9 @@ class TrimeshEngine:
 
     def export_formats(self, ply: Path, obj: Path, glb: Path) -> EngineResult:
         try:
-            import trimesh
+            export_glb_from_ply(ply, glb, obj)
         except ImportError:
             return EngineResult(False, "trimesh package not installed")
-
-        mesh = trimesh.load(str(ply), force="mesh")
-        if not isinstance(mesh, trimesh.Trimesh):
-            if self.mock:
-                mesh = trimesh.creation.box(extents=[1.0, 1.0, 1.0])
-            else:
-                return EngineResult(False, f"Could not load PLY from {ply}")
-
-        obj.parent.mkdir(parents=True, exist_ok=True)
-        mesh.export(str(obj))
-        mesh.export(str(glb))
+        except Exception as exc:
+            return EngineResult(False, f"GLB export failed: {exc}")
         return EngineResult(True, "exported obj/glb", [obj, glb])

@@ -11,6 +11,7 @@ from django.db import transaction
 from app.models.enums import JobStage, PIPELINE_STAGES
 from app.pipeline.input_extract import ARCHIVE_EXTENSIONS, MEDIA_EXTENSIONS
 from app.models.job import Job as PipelineJob
+from app.pipeline.glb_export import ensure_glb_from_ply, is_valid_glb
 from app.pipeline.stages import STAGE_DESCRIPTIONS
 from app.pipeline.workspace import JobWorkspace
 from app.storage.local import LocalStorage
@@ -189,6 +190,19 @@ def get_scan_outputs(scan_job: ScanJob) -> dict[str, Path]:
     for key, path in mapping.items():
         if path.exists():
             outputs[key] = path
+
+    # Repair invalid GLB files from older runs / stale workers.
+    ply = outputs.get("ply")
+    glb = outputs.get("glb")
+    if ply and (not glb or not is_valid_glb(glb)):
+        try:
+            glb_path = ensure_glb_from_ply(ply, ws.output_glb(), ws.output_obj())
+            outputs["glb"] = glb_path
+            if ws.output_obj().exists():
+                outputs["obj"] = ws.output_obj()
+        except Exception:
+            pass
+
     return outputs
 
 
