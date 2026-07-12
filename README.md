@@ -12,7 +12,7 @@ docker compose up --build
 
 Open http://127.0.0.1:8000/ — login **`dev`** / **`devdevdev`**
 
-Services: `web`, `worker` (Celery), `db` (PostgreSQL), `redis`
+Services: `web`, `library-worker` (Django Celery), `api`, `worker` (scan pipeline + GPU), `db`, `redis`, `minio`, `frontend`
 
 If port 8000 is in use: `WEB_PORT=8001 docker compose up --build`
 
@@ -47,6 +47,7 @@ celery -A config worker -l info
 
 - **Home** — Recently saved, stats
 - **Save Model** — URL tab or STL upload tab
+- **3D Scan** — Upload photos/video, track pipeline steps, logs, download STL
 - **Settings** — API token for extension
 - **Collections** — Create and browse
 
@@ -128,20 +129,24 @@ docker run --gpus all \
   photogrammetry-worker
 ```
 
-### Phase 3 — Full stack (Compose)
+### Phase 3 — Full stack (same `docker compose up`)
+
+Photogrammetry services run alongside the Django library app in the same Compose file:
 
 ```bash
-docker compose -f docker-compose.photogrammetry.yml up --build
+docker compose up --build
 ```
 
-| Service  | Port  | Role                          |
-|----------|-------|-------------------------------|
-| api      | 8001  | Upload, job status, downloads |
-| worker   | —     | Celery + COLMAP + OpenMVS GPU |
-| redis    | —     | Task queue                    |
-| postgres | —     | Job metadata (future)         |
-| minio    | 9000  | Object storage for artifacts  |
-| frontend | 3000  | Upload UI + progress          |
+| Service         | Port  | Role                              |
+|-----------------|-------|-----------------------------------|
+| web             | 8000  | Django library UI + API           |
+| library-worker  | —     | Django Celery (metadata, STL)     |
+| api             | 8001  | Scan upload, job status, downloads |
+| worker          | —     | Scan pipeline Celery + GPU        |
+| db              | —     | PostgreSQL (shared)               |
+| redis           | —     | Task queue (db 0 = Django, 1 = scan) |
+| minio           | 9000  | Object storage for scan artifacts |
+| frontend        | 3000  | Scan upload UI + progress         |
 
 API examples:
 
