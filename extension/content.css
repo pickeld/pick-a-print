@@ -1,0 +1,43 @@
+#tdl-save-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483646;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #111;
+  font: 600 14px/1 Inter, system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+#tdl-save-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+#tdl-save-btn:disabled {
+  opacity: 0.85;
+  cursor: wait;
+}
+
+#tdl-save-btn.success {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+}
+
+#tdl-save-btn.error {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  #tdl-save-btn {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+}

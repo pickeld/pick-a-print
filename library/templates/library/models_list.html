@@ -1,0 +1,40 @@
+{% extends "library/base.html" %}
+
+{% block title %}All Models — 3D Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>All Models</h2>
+  <p>{% if query %}Results for "{{ query }}"{% else %}Browse your full library{% endif %}</p>
+</div>
+
+<form class="filters-bar" method="get">
+  <div class="form-group">
+    <label>Search</label>
+    {{ form.q }}
+  </div>
+  <div class="form-group">
+    <label>Status</label>
+    {{ form.status }}
+  </div>
+  <div class="form-group">
+    <label>Source</label>
+    {{ form.source_site }}
+  </div>
+  <button type="submit" class="btn btn-ghost">Filter</button>
+</form>
+
+{% if models %}
+  <div class="model-grid">
+    {% for model in models %}
+      {% include "library/partials/model_card.html" %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="icon">🔍</div>
+    <p>No models found. Try a different search or save a new model.</p>
+    <a href="{% url 'model_save' %}" class="btn btn-primary" style="margin-top:1rem">+ Save a model</a>
+  </div>
+{% endif %}
+{% endblock %}

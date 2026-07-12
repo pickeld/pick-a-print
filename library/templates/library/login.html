@@ -1,0 +1,38 @@
+{% extends "library/base_public.html" %}
+
+{% block title %}Sign in — 3D Library{% endblock %}
+
+{% block content %}
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="icon">🖨</div>
+      <h1>3D Library</h1>
+      <p>Your personal 3D printing collection</p>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+
+      <div class="form-group">
+        <label for="{{ form.username.id_for_label }}">Username</label>
+        {{ form.username }}
+        {% if form.username.errors %}<ul class="errorlist">{% for e in form.username.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.password.id_for_label }}">Password</label>
+        {{ form.password }}
+        {% if form.password.errors %}<ul class="errorlist">{% for e in form.password.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Sign in</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

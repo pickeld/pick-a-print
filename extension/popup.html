@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Library</title>
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; margin: 0; padding: 16px; width: 300px; background: #12151a; color: #e8eaed; }
+    h1 { font-size: 14px; margin: 0 0 12px; }
+    label { display: block; font-size: 11px; color: #8b93a7; margin-bottom: 4px; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; margin-bottom: 12px; border-radius: 6px; border: 1px solid #2a3040; background: #181c24; color: #e8eaed; }
+    button { width: 100%; padding: 10px; border: none; border-radius: 6px; background: #f59e0b; color: #111; font-weight: 600; cursor: pointer; }
+    .status { font-size: 12px; margin-top: 10px; color: #22c55e; min-height: 18px; }
+    a { color: #f59e0b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>3D Library</h1>
+  <label for="apiBase">API Base URL</label>
+  <input id="apiBase" placeholder="http://127.0.0.1:8000/api" />
+  <label for="apiToken">API Token</label>
+  <input id="apiToken" type="password" placeholder="Paste from Settings page" />
+  <button id="save">Save settings</button>
+  <div class="status" id="status"></div>
+  <p style="margin-top:12px"><a href="http://127.0.0.1:8000/settings/" target="_blank">Get token from Settings →</a></p>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{% load library_extras %}
+
+<a href="{% url 'model_detail' pk=model.pk %}" class="model-card">
+  <div class="model-card-thumb">
+    {% if model.thumbnail_url %}
+      <img src="{{ model.thumbnail_url }}" alt="{{ model.title }}" loading="lazy">
+    {% else %}
+      <div class="placeholder">🧊</div>
+    {% endif %}
+  </div>
+  <div class="model-card-body">
+    <h4 class="model-card-title">{{ model.title }}</h4>
+    <div class="model-card-meta">
+      <span class="badge badge-site">{{ model.source_site|site_label }}</span>
+      <span class="badge badge-status {{ model.status }}">{{ model.status|status_label }}</span>
+    </div>
+    {% if model.tags.all %}
+      <div class="tags-row">
+        {% for tag in model.tags.all|slice:":3" %}
+          <span class="tag-pill">{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</a>

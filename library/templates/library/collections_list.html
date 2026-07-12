@@ -1,0 +1,47 @@
+{% extends "library/base.html" %}
+
+{% block title %}Collections — 3D Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Collections</h2>
+  <p>Organize models like playlists — Kids, Tools, Gifts...</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:2rem;align-items:start">
+  <div>
+    {% if collections %}
+      <div class="collection-grid">
+        {% for col in collections %}
+          <a href="{% url 'collection_detail' slug=col.slug %}" class="collection-card">
+            <h4>{{ col.name }}</h4>
+            {% if col.description %}<p>{{ col.description|truncatewords:15 }}</p>{% endif %}
+            <div class="count">{{ col.model_count }} model{{ col.model_count|pluralize }}</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="icon">📚</div>
+        <p>No collections yet. Create one to organize your models.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="form-card">
+    <h3 style="margin:0 0 1rem;font-size:1rem">New Collection</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Name</label>
+        {{ form.name }}
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        {{ form.description }}
+      </div>
+      <button type="submit" class="btn btn-primary">Create</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

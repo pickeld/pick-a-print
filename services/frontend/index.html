@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>סריקה לתלת־ממד</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    .progress { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+    .bar { height: 100%; background: #2563eb; width: 0%; transition: width 0.3s; }
+    pre { background: #f4f4f5; padding: 1rem; overflow: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>סריקה לתלת־ממד</h1>
+  <p>העלה תמונות או וידאו — המערכת תפיק STL ו־GLB.</p>
+  <form id="upload">
+    <input type="file" id="files" multiple accept="image/*,video/*" />
+    <button type="submit">התחל סריקה</button>
+  </form>
+  <p id="status"></p>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+  <pre id="outputs"></pre>
+  <script>
+    const API = location.origin.replace(':3000', ':8001');
+    document.getElementById('upload').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      for (const f of document.getElementById('files').files) fd.append('files', f);
+      const res = await fetch(API + '/jobs/', { method: 'POST', body: fd });
+      const { job_id } = await res.json();
+      document.getElementById('status').textContent = 'Job: ' + job_id;
+      const poll = setInterval(async () => {
+        const j = await (await fetch(API + '/jobs/' + job_id)).json();
+        document.getElementById('bar').style.width = j.progress + '%';
+        document.getElementById('status').textContent = j.stage + (j.error ? ' — ' + j.error : '');
+        if (j.stage === 'COMPLETED' || j.stage === 'FAILED') {
+          clearInterval(poll);
+          const o = await (await fetch(API + '/jobs/' + job_id + '/outputs')).json();
+          document.getElementById('outputs').textContent = JSON.stringify(o, null, 2);
+        }
+      }, 2000);
+    };
+  </script>
+</body>
+</html>

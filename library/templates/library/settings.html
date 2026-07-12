@@ -1,0 +1,33 @@
+{% extends "library/base.html" %}
+
+{% block title %}Settings — 3D Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Settings</h2>
+  <p>API access for the browser extension</p>
+</div>
+
+<div class="form-card" style="max-width:640px">
+  <div class="form-group">
+    <label>API Base URL</label>
+    <input type="text" readonly value="{{ api_base }}" id="api-base" onclick="this.select()">
+    <div class="helptext">Use this in the extension popup (e.g. http://127.0.0.1:8000/api)</div>
+  </div>
+
+  <div class="form-group">
+    <label>API Token</label>
+    <input type="text" readonly value="{{ api_token }}" id="api-token" onclick="this.select()">
+    <div class="helptext">Keep this private. Regenerate by deleting the token in Django admin.</div>
+  </div>
+
+  <h3 style="font-size:1rem;margin:1.5rem 0 0.75rem">Browser Extension</h3>
+  <ol style="color:var(--text-muted);font-size:0.9rem;line-height:1.7;padding-left:1.2rem">
+    <li>Open <code>chrome://extensions</code></li>
+    <li>Enable <strong>Developer mode</strong></li>
+    <li>Click <strong>Load unpacked</strong></li>
+    <li>Select the <code>extension/</code> folder in this project</li>
+    <li>Click the extension icon and paste API URL + Token</li>
+  </ol>
+</div>
+{% endblock %}

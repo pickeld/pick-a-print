@@ -1,0 +1,66 @@
+{% extends "library/base.html" %}
+
+{% block title %}Home — 3D Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Recently Saved</h2>
+  <p>Your latest models from across the web</p>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="value">{{ stats.total }}</div>
+    <div class="label">Total models</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.saved }}</div>
+    <div class="label">Saved</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ stats.printed }}</div>
+    <div class="label">Printed</div>
+  </div>
+</div>
+
+<section class="section">
+  <div class="section-header">
+    <h3>Recently Saved</h3>
+    {% if recent %}
+      <a href="{% url 'models_list' %}">View all →</a>
+    {% endif %}
+  </div>
+
+  {% if recent %}
+    <div class="model-grid">
+      {% for model in recent %}
+        {% include "library/partials/model_card.html" %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">📭</div>
+      <p>No models yet. Save your first model from Printables, MakerWorld, or anywhere.</p>
+      <a href="{% url 'model_save' %}" class="btn btn-primary" style="margin-top:1rem">+ Save a model</a>
+    </div>
+  {% endif %}
+</section>
+
+{% if collections %}
+<section class="section">
+  <div class="section-header">
+    <h3>Collections</h3>
+    <a href="{% url 'collections_list' %}">Manage →</a>
+  </div>
+  <div class="collection-grid">
+    {% for col in collections %}
+      <a href="{% url 'collection_detail' slug=col.slug %}" class="collection-card">
+        <h4>{{ col.name }}</h4>
+        {% if col.description %}<p>{{ col.description|truncatewords:12 }}</p>{% endif %}
+        <div class="count">{{ col.model_count }} model{{ col.model_count|pluralize }}</div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

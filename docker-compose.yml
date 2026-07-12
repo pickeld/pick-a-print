@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: 3d_collection
+      POSTGRES_USER: 3d_collection
+      POSTGRES_PASSWORD: 3d_collection
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U 3d_collection -d 3d_collection"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    environment:
+      DEBUG: "True"
+      SECRET_KEY: dev-docker-secret-change-in-production
+      ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DATABASE_URL: postgres://3d_collection:3d_collection@db:5432/3d_collection
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    environment:
+      DEBUG: "True"
+      SECRET_KEY: dev-docker-secret-change-in-production
+      DATABASE_URL: postgres://3d_collection:3d_collection@db:5432/3d_collection
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  media_data:

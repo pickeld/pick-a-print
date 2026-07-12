@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "3D Library — Save",
+  "version": "0.1.0",
+  "description": "Save 3D models from Printables, MakerWorld, Thangs and more to your personal library.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8001/*",
+    "http://127.0.0.1:8001/*",
+    "https://www.printables.com/*",
+    "https://printables.com/*",
+    "https://makerworld.com/*",
+    "https://www.makerworld.com/*",
+    "https://thangs.com/*",
+    "https://www.thangs.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Save to 3D Library"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.printables.com/*",
+        "https://printables.com/*",
+        "https://makerworld.com/*",
+        "https://www.makerworld.com/*",
+        "https://thangs.com/*",
+        "https://www.thangs.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ]
+}

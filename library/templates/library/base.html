@@ -1,0 +1,97 @@
+{% load static library_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}3D Library{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'library/css/app.css' %}">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">🖨</div>
+        <div>
+          <h1>3D Library</h1>
+          <span>Personal printing collection</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Library</div>
+          <a href="{% url 'home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+            <span>🏠</span> Home
+          </a>
+          <a href="{% url 'models_list' %}" class="nav-link {% if request.resolver_match.url_name == 'models_list' %}active{% endif %}">
+            <span>📦</span> All Models
+          </a>
+          <a href="{% url 'model_save' %}" class="nav-link {% if request.resolver_match.url_name == 'model_save' %}active{% endif %}">
+            <span>➕</span> Save Model
+          </a>
+          <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+            <span>⚙️</span> Settings
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">Collections</div>
+          <a href="{% url 'collections_list' %}" class="nav-link {% if request.resolver_match.url_name == 'collections_list' %}active{% endif %}">
+            <span>📚</span> All Collections
+          </a>
+          {% for col in sidebar_collections %}
+            <a href="{% url 'collection_detail' slug=col.slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}">
+              <span>📁</span> {{ col.name }}
+              <span class="count">{{ col.model_count }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="user-avatar">{{ request.user.username|initials }}</div>
+          <div>
+            <div>{{ request.user.username }}</div>
+            <form method="post" action="{% url 'logout' %}" style="margin:0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost" style="padding:0.2rem 0;font-size:0.75rem;border:none;background:none;color:var(--text-muted)">Sign out</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button type="button" class="btn btn-ghost menu-toggle" id="menu-toggle" aria-label="Open menu">☰</button>
+        <form class="search-form" method="get" action="{% url 'models_list' %}">
+          <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search...">
+        </form>
+        <div class="topbar-actions">
+          <a href="{% url 'model_save' %}" class="btn btn-primary">+ Save</a>
+        </div>
+      </header>
+
+      <main class="content">
+        {% if messages %}
+          <ul class="messages">
+            {% for message in messages %}
+              <li class="message {{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <script src="{% static 'library/js/app.js' %}"></script>
+</body>
+</html>

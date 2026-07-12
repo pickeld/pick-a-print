@@ -1,0 +1,116 @@
+{% extends "library/base.html" %}
+{% load library_extras %}
+
+{% block title %}{{ model.title }} — 3D Library{% endblock %}
+
+{% block content %}
+<div class="detail-layout">
+  <div class="detail-preview">
+    {% if model.thumbnail_url %}
+      <img src="{{ model.thumbnail_url }}" alt="{{ model.title }}">
+    {% else %}
+      <div class="placeholder">🧊</div>
+    {% endif %}
+  </div>
+
+  <div class="detail-info">
+    <h2>{{ model.title }}</h2>
+    <div class="model-card-meta">
+      <span class="badge badge-site">{{ model.source_site|site_label }}</span>
+      <span class="badge badge-status {{ model.status }}">{{ model.status|status_label }}</span>
+    </div>
+
+    <ul class="detail-meta-list">
+      {% if model.designer %}
+        <li><span class="label">Designer</span> {{ model.designer }}</li>
+      {% endif %}
+      {% if model.source_type == 'link' and model.source_url %}
+      <li><span class="label">Source</span> <a href="{{ model.source_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a></li>
+      {% endif %}
+      {% if model.license %}
+        <li><span class="label">License</span> {{ model.license }}</li>
+      {% endif %}
+      <li><span class="label">Saved</span> {{ model.created_at|date:"M j, Y" }}</li>
+      {% if model.tags.all %}
+        <li>
+          <span class="label">Tags</span>
+          <span class="tags-row" style="margin:0">
+            {% for tag in model.tags.all %}
+              <span class="tag-pill">{{ tag.name }}</span>
+            {% endfor %}
+          </span>
+        </li>
+      {% endif %}
+      {% if model.collections.all %}
+        <li>
+          <span class="label">Collections</span>
+          {% for col in model.collections.all %}
+            <a href="{% url 'collection_detail' slug=col.slug %}">{{ col.name }}</a>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </li>
+      {% endif %}
+    </ul>
+
+    {% if model.files.all %}
+    <div class="form-card" style="max-width:none;margin-top:1rem">
+      <h3 style="margin:0 0 1rem;font-size:1rem">File Analysis</h3>
+      {% for f in model.files.all %}
+        <ul class="detail-meta-list">
+          <li><span class="label">File</span> {{ f.original_name }}</li>
+          <li><span class="label">Size</span> {{ f.file_size|filesizeformat }}</li>
+          {% if f.triangle_count %}<li><span class="label">Triangles</span> {{ f.triangle_count }}</li>{% endif %}
+          {% if f.dimension_x %}
+            <li><span class="label">Dimensions</span> {{ f.dimension_x|floatformat:1 }} × {{ f.dimension_y|floatformat:1 }} × {{ f.dimension_z|floatformat:1 }} mm</li>
+          {% endif %}
+          {% if f.volume_cm3 %}<li><span class="label">Volume</span> ~{{ f.volume_cm3|floatformat:1 }} cm³</li>{% endif %}
+        </ul>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="form-card" style="max-width:none;margin-top:1.5rem">
+      <h3 style="margin:0 0 1rem;font-size:1rem">Edit</h3>
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label>Title</label>
+          {{ form.title }}
+        </div>
+
+        <div class="form-group">
+          <label>Designer</label>
+          {{ form.designer }}
+        </div>
+
+        <div class="form-group">
+          <label>License</label>
+          {{ form.license }}
+        </div>
+
+        <div class="form-group">
+          <label>Status</label>
+          {{ form.status }}
+        </div>
+
+        <div class="form-group">
+          <label>{{ form.tag_names.label }}</label>
+          {{ form.tag_names }}
+        </div>
+
+        {% if form.collections.field.queryset %}
+        <div class="form-group">
+          <label>{{ form.collections.label }}</label>
+          {{ form.collections }}
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save changes</button>
+          <button type="submit" name="delete" value="1" class="btn btn-danger" onclick="return confirm('Remove this model from your library?')">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

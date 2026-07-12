@@ -1,0 +1,24 @@
+{% extends "library/base.html" %}
+
+{% block title %}{{ collection.name }} — 3D Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ collection.name }}</h2>
+  {% if collection.description %}<p>{{ collection.description }}</p>{% endif %}
+</div>
+
+{% if models %}
+  <div class="model-grid">
+    {% for model in models %}
+      {% include "library/partials/model_card.html" %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="icon">📁</div>
+    <p>This collection is empty. Save a model and add it here.</p>
+    <a href="{% url 'model_save' %}" class="btn btn-primary" style="margin-top:1rem">+ Save a model</a>
+  </div>
+{% endif %}
+{% endblock %}
