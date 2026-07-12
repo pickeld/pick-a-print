@@ -12,4 +12,9 @@ urlpatterns = [
     path("models/<int:pk>/", web_views.model_detail_view, name="model_detail"),
     path("collections/", web_views.collections_list_view, name="collections_list"),
     path("collections/<slug:slug>/", web_views.collection_detail_view, name="collection_detail"),
+    path("scan/", web_views.scan_list_view, name="scan_list"),
+    path("scan/<uuid:job_id>/", web_views.scan_job_view, name="scan_job"),
+    path("scan/<uuid:job_id>/status/", web_views.scan_status_view, name="scan_status"),
+    path("scan/<uuid:job_id>/import/", web_views.scan_import_view, name="scan_import"),
+    path("scan/<uuid:job_id>/download/<str:filename>/", web_views.scan_download_view, name="scan_download"),
 ]

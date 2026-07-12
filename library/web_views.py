@@ -2,12 +2,22 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
+from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 from rest_framework.authtoken.models import Token
 
-from library.forms import CollectionForm, LoginForm, ModelUpdateForm, SaveModelForm, SearchForm, UploadModelForm
-from library.models import Collection, ModelStatus, SavedModel
+from library.forms import CollectionForm, LoginForm, ModelUpdateForm, SaveModelForm, ScanUploadForm, SearchForm, UploadModelForm
+from library.models import Collection, ModelStatus, SavedModel, ScanJob
+from library.scan_services import (
+    ScanError,
+    build_status_payload,
+    create_scan_job,
+    get_pipeline_steps,
+    get_scan_outputs,
+    import_scan_to_library,
+    sync_scan_job,
+)
 from library.services import ModelSaveError, save_model_from_upload, save_model_from_url
 
 
@@ -136,13 +146,30 @@ def model_save_view(request):
 
 @login_required
 def settings_view(request):
+    active_tab = request.GET.get("tab", "api")
+    if active_tab not in ("api", "about"):
+        active_tab = "api"
+
     token, _ = Token.objects.get_or_create(user=request.user)
     api_base = request.build_absolute_uri("/api").rstrip("/")
-    return render(
-        request,
-        "library/settings.html",
-        {"api_token": token.key, "api_base": api_base},
-    )
+
+    context = {
+        "api_token": token.key,
+        "api_base": api_base,
+        "active_tab": active_tab,
+    }
+
+    from library.dependency_info import get_about_context, get_cached_updates_available
+
+    context["updates_available"] = get_cached_updates_available()
+
+    if active_tab == "about":
+        refresh = request.GET.get("refresh") == "1"
+        about = get_about_context(refresh=refresh)
+        context.update(about)
+        context["updates_available"] = about["updates_available"]
+
+    return render(request, "library/settings.html", context)
 
 
 @login_required
@@ -198,3 +225,94 @@ def collection_detail_view(request, slug):
         "library/collection_detail.html",
         {"collection": collection, "models": models},
     )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def scan_list_view(request):
+    form = ScanUploadForm(request.POST or None, user=request.user)
+    recent = ScanJob.objects.filter(user=request.user).select_related("saved_model")[:12]
+
+    if request.method == "POST":
+        files = request.FILES.getlist("files")
+        if form.is_valid():
+            tag_names = [t.strip() for t in form.cleaned_data["tag_names"].split(",") if t.strip()]
+            collection_ids = list(form.cleaned_data["collections"].values_list("id", flat=True))
+            try:
+                scan_job = create_scan_job(
+                    user=request.user,
+                    files=files,
+                    title=form.cleaned_data.get("title") or None,
+                    tag_names=tag_names or None,
+                    collection_ids=collection_ids or None,
+                )
+            except ScanError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, "Scan started. Track progress below.")
+                return redirect("scan_job", job_id=scan_job.job_id)
+
+    return render(
+        request,
+        "library/scan.html",
+        {
+            "form": form,
+            "recent": recent,
+            "pipeline_steps": get_pipeline_steps(),
+        },
+    )
+
+
+@login_required
+def scan_job_view(request, job_id):
+    scan_job = get_object_or_404(ScanJob, job_id=job_id, user=request.user)
+    sync_scan_job(scan_job)
+    status = build_status_payload(scan_job)
+    return render(
+        request,
+        "library/scan_job.html",
+        {
+            "scan_job": scan_job,
+            "status": status,
+            "pipeline_steps": status["steps"],
+        },
+    )
+
+
+@login_required
+def scan_status_view(request, job_id):
+    scan_job = get_object_or_404(ScanJob, job_id=job_id, user=request.user)
+    return JsonResponse(build_status_payload(scan_job))
+
+
+@login_required
+@require_http_methods(["POST"])
+def scan_import_view(request, job_id):
+    scan_job = get_object_or_404(ScanJob, job_id=job_id, user=request.user)
+    try:
+        scan_job = import_scan_to_library(scan_job)
+    except ScanError as exc:
+        messages.error(request, str(exc))
+        return redirect("scan_job", job_id=scan_job.job_id)
+
+    messages.success(request, f'"{scan_job.title}" saved to your library.')
+    return redirect("model_detail", pk=scan_job.saved_model_id)
+
+
+@login_required
+def scan_download_view(request, job_id, filename):
+    scan_job = get_object_or_404(ScanJob, job_id=job_id, user=request.user)
+    outputs = get_scan_outputs(scan_job)
+    path = next((p for p in outputs.values() if p.name == filename), None)
+    if not path:
+        messages.error(request, "File not found.")
+        return redirect("scan_job", job_id=scan_job.job_id)
+
+    media_types = {
+        ".stl": "model/stl",
+        ".glb": "model/gltf-binary",
+        ".ply": "application/octet-stream",
+        ".obj": "text/plain",
+        ".json": "application/json",
+    }
+    return FileResponse(path.open("rb"), as_attachment=True, filename=path.name, content_type=media_types.get(path.suffix.lower(), "application/octet-stream"))

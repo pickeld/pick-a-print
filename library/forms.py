@@ -142,3 +142,26 @@ class SearchForm(forms.Form):
         widget=forms.TextInput(attrs={"placeholder": "printables, makerworld..."}),
         label="Source",
     )
+
+
+class ScanUploadForm(forms.Form):
+    title = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "Optional scan title"}),
+    )
+    tag_names = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "scan, figurine"}),
+        label="Tags (applied when saving to library)",
+    )
+    collections = forms.ModelMultipleChoiceField(
+        queryset=Collection.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Collections (when saving to library)",
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user:
+            self.fields["collections"].queryset = Collection.objects.filter(user=user)

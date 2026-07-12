@@ -123,3 +123,39 @@ class ModelFile(models.Model):
 
     def __str__(self) -> str:
         return self.original_name
+
+
+class ScanJob(models.Model):
+    """Photogrammetry scan tracked in Django; pipeline state lives in job.json on disk."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scan_jobs")
+    job_id = models.UUIDField(unique=True, db_index=True)
+    title = models.CharField(max_length=500)
+    stage = models.CharField(max_length=32, default="UPLOADED", db_index=True)
+    progress = models.FloatField(default=0)
+    error = models.TextField(blank=True)
+    input_file_count = models.PositiveSmallIntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+    saved_model = models.ForeignKey(
+        SavedModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="scan_jobs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.stage in ("COMPLETED", "FAILED")
+
+    @property
+    def is_completed(self) -> bool:
+        return self.stage == "COMPLETED"

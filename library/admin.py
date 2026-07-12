@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from library.models import Collection, ModelFile, SavedModel, Tag
+from library.models import Collection, ModelFile, SavedModel, ScanJob, Tag
 
 
 @admin.register(ModelFile)
@@ -29,3 +29,11 @@ class CollectionAdmin(admin.ModelAdmin):
 class TagAdmin(admin.ModelAdmin):
     list_display = ["name", "user", "created_at"]
     search_fields = ["name", "user__username"]
+
+
+@admin.register(ScanJob)
+class ScanJobAdmin(admin.ModelAdmin):
+    list_display = ["title", "user", "stage", "progress", "input_file_count", "created_at"]
+    list_filter = ["stage", "created_at"]
+    search_fields = ["title", "job_id", "user__username"]
+    readonly_fields = ["job_id", "created_at", "updated_at"]

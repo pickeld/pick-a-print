@@ -1,0 +1,266 @@
+from __future__ import annotations
+
+import os
+import uuid
+from pathlib import Path
+
+from django.conf import settings
+from django.core.files import File
+from django.db import transaction
+
+from app.models.enums import JobStage, PIPELINE_STAGES
+from app.pipeline.input_extract import ARCHIVE_EXTENSIONS, MEDIA_EXTENSIONS
+from app.models.job import Job as PipelineJob
+from app.pipeline.stages import STAGE_DESCRIPTIONS
+from app.pipeline.workspace import JobWorkspace
+from app.storage.local import LocalStorage
+from library.models import ScanJob
+from library.services import ModelSaveError, save_model_from_upload
+
+
+class ScanError(Exception):
+    pass
+
+
+def workspace_root() -> Path:
+    return Path(os.getenv("PIPELINE_DATA_DIR", str(settings.PIPELINE_DATA_DIR)))
+
+
+def get_pipeline_steps() -> list[dict[str, str]]:
+    steps = []
+    for stage in PIPELINE_STAGES:
+        if stage == JobStage.COMPLETED:
+            continue
+        steps.append(
+            {
+                "key": stage.value,
+                "label": STAGE_DESCRIPTIONS.get(stage, stage.value.replace("_", " ").title()),
+            }
+        )
+    return steps
+
+
+def _step_index(stage_value: str) -> int:
+    try:
+        return next(i for i, s in enumerate(PIPELINE_STAGES) if s.value == stage_value)
+    except StopIteration:
+        return 0
+
+
+def step_state(step_key: str, current_stage: str, failed: bool, failed_stage: str | None = None) -> str:
+    """Return pending | active | done | failed for a pipeline step."""
+    if failed:
+        fail_at = failed_stage or current_stage
+        if step_key == fail_at:
+            return "failed"
+        fail_idx = _step_index(fail_at) if fail_at != "FAILED" else _step_index(step_key)
+        step_idx = _step_index(step_key)
+        if fail_at != "FAILED" and step_idx < fail_idx:
+            return "done"
+        if fail_at != "FAILED" and step_idx > fail_idx:
+            return "pending"
+        return "pending"
+
+    current_idx = _step_index(current_stage)
+    step_idx = _step_index(step_key)
+    if current_stage == "COMPLETED":
+        return "done"
+    if step_idx < current_idx:
+        return "done"
+    if step_idx == current_idx:
+        return "active"
+    return "pending"
+
+
+def load_pipeline_job(job_id: str) -> PipelineJob:
+    return PipelineJob.load(workspace_root(), job_id)
+
+
+def sync_scan_job(scan_job: ScanJob) -> ScanJob:
+    """Refresh Django record from on-disk pipeline job.json."""
+    pipeline_job = load_pipeline_job(str(scan_job.job_id))
+    stage = pipeline_job.stage.value if isinstance(pipeline_job.stage, JobStage) else str(pipeline_job.stage)
+    scan_job.stage = stage
+    scan_job.progress = pipeline_job.progress
+    scan_job.error = pipeline_job.error or ""
+    scan_job.save(update_fields=["stage", "progress", "error", "updated_at"])
+    return scan_job
+
+
+def queue_scan(job_id: str) -> None:
+    """Publish to the scan Celery broker (redis db 1), not Django's library broker (db 0)."""
+    import os
+
+    try:
+        from kombu import Connection
+
+        from app.workers.tasks import run_scan
+
+        broker = os.getenv("SCAN_CELERY_BROKER_URL", "redis://localhost:6379/1")
+        with Connection(broker) as conn:
+            run_scan.apply_async(args=[job_id], connection=conn)
+    except Exception as exc:
+        raise ScanError(f"Could not queue scan job. Is the scan worker running? ({exc})") from exc
+
+
+def _validate_upload_files(files) -> None:
+    allowed = MEDIA_EXTENSIONS | ARCHIVE_EXTENSIONS
+    for uploaded in files:
+        ext = Path(uploaded.name).suffix.lower()
+        if ext not in allowed:
+            raise ScanError(
+                f"Unsupported file type: {uploaded.name}. "
+                "Upload photos, video, or a .zip archive."
+            )
+
+
+@transaction.atomic
+def create_scan_job(
+    *,
+    user,
+    files,
+    title: str | None = None,
+    tag_names: list[str] | None = None,
+    collection_ids: list[int] | None = None,
+) -> ScanJob:
+    if not files:
+        raise ScanError("Upload at least one photo, video, or .zip archive.")
+
+    _validate_upload_files(files)
+
+    max_bytes = settings.SCAN_MAX_UPLOAD_MB * 1024 * 1024
+    total_size = sum(getattr(f, "size", 0) or 0 for f in files)
+    if total_size > max_bytes:
+        raise ScanError(f"Total upload exceeds {settings.SCAN_MAX_UPLOAD_MB} MB limit.")
+
+    job_id = str(uuid.uuid4())
+    root = workspace_root()
+    storage = LocalStorage(root)
+    ws = storage.workspace(job_id)
+    ws.ensure_dirs()
+
+    for uploaded in files:
+        dest = ws.input_dir / uploaded.name
+        with dest.open("wb") as out:
+            for chunk in uploaded.chunks():
+                out.write(chunk)
+
+    display_title = title or f"Scan {job_id[:8]}"
+    pipeline_job = PipelineJob.create(job_id)
+    pipeline_job.metadata = {
+        "user_id": user.id,
+        "title": display_title,
+        "file_count": len(files),
+    }
+    has_zip = any(Path(f.name).suffix.lower() in ARCHIVE_EXTENSIONS for f in files)
+    pipeline_job.append_log(
+        f"Received {len(files)} upload(s)"
+        + (" including zip archive(s)" if has_zip else ""),
+        JobStage.UPLOADED,
+    )
+    pipeline_job.save(root)
+
+    scan_job = ScanJob.objects.create(
+        user=user,
+        job_id=job_id,
+        title=display_title,
+        stage=JobStage.UPLOADED.value,
+        input_file_count=len(files),
+        metadata={
+            "tag_names": tag_names or [],
+            "collection_ids": collection_ids or [],
+        },
+    )
+
+    queue_scan(job_id)
+    return scan_job
+
+
+def get_scan_outputs(scan_job: ScanJob) -> dict[str, Path]:
+    ws = JobWorkspace(workspace_root(), str(scan_job.job_id))
+    outputs: dict[str, Path] = {}
+    mapping = {
+        "stl": ws.output_stl(),
+        "glb": ws.output_glb(),
+        "ply": ws.output_ply(),
+        "obj": ws.output_obj(),
+        "report": ws.output_report(),
+    }
+    for key, path in mapping.items():
+        if path.exists():
+            outputs[key] = path
+    return outputs
+
+
+def build_status_payload(scan_job: ScanJob) -> dict:
+    scan_job = sync_scan_job(scan_job)
+    pipeline_job = load_pipeline_job(str(scan_job.job_id))
+    steps = get_pipeline_steps()
+    failed = scan_job.stage == JobStage.FAILED.value
+    failed_stage = None
+    if failed and scan_job.error and ":" in scan_job.error:
+        failed_stage = scan_job.error.split(":", 1)[0].strip()
+    for step in steps:
+        step["state"] = step_state(step["key"], scan_job.stage, failed, failed_stage)
+
+    outputs = {}
+    if scan_job.is_completed:
+        for key, path in get_scan_outputs(scan_job).items():
+            outputs[key] = path.name
+
+    return {
+        "job_id": str(scan_job.job_id),
+        "title": scan_job.title,
+        "stage": scan_job.stage,
+        "progress": scan_job.progress,
+        "error": scan_job.error or None,
+        "log_lines": pipeline_job.log_lines,
+        "stage_logs": pipeline_job.stage_logs,
+        "steps": steps,
+        "completed": scan_job.is_completed,
+        "failed": failed,
+        "outputs": outputs,
+        "saved_model_id": scan_job.saved_model_id,
+    }
+
+
+@transaction.atomic
+def import_scan_to_library(scan_job: ScanJob) -> ScanJob:
+    if scan_job.saved_model_id:
+        return scan_job
+    if not scan_job.is_completed:
+        raise ScanError("Scan is not completed yet.")
+
+    outputs = get_scan_outputs(scan_job)
+    stl_path = outputs.get("stl")
+    if not stl_path:
+        raise ScanError("STL output not found.")
+
+    meta = scan_job.metadata or {}
+    tag_names = meta.get("tag_names") or []
+    collection_ids = meta.get("collection_ids") or []
+
+    with stl_path.open("rb") as handle:
+        django_file = File(handle, name=stl_path.name)
+        try:
+            model = save_model_from_upload(
+                user=scan_job.user,
+                uploaded_file=django_file,
+                title=scan_job.title,
+                tag_names=tag_names or None,
+                collection_ids=collection_ids or None,
+            )
+        except ModelSaveError as exc:
+            raise ScanError(str(exc)) from exc
+
+    model.source_site = "scan"
+    model.metadata = {
+        **(model.metadata or {}),
+        "scan_job_id": str(scan_job.job_id),
+        "fetch_status": "scan",
+    }
+    model.save(update_fields=["source_site", "metadata"])
+
+    scan_job.saved_model = model
+    scan_job.save(update_fields=["saved_model", "updated_at"])
+    return scan_job
