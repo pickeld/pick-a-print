@@ -28,7 +28,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", "-o", required=True, type=Path, help="Output directory for final artifacts")
     parser.add_argument("--job-id", type=str, default=None, help="Job ID (auto-generated if omitted)")
     parser.add_argument("--workspace", type=Path, default=Path("./data/jobs"), help="Job workspace root")
-    parser.add_argument("--mock", action="store_true", help="Mock external tools (for testing flow)")
     parser.add_argument("--from-stage", type=str, default=None, choices=[s.value for s in JobStage])
     parser.add_argument("--verbose", "-v", action="store_true")
     return parser.parse_args()
@@ -61,7 +60,7 @@ def main() -> int:
     setup_logging(args.verbose)
 
     job_id = args.job_id or str(uuid.uuid4())
-    config = PipelineConfig(workspace_root=args.workspace, mock=args.mock)
+    config = PipelineConfig(workspace_root=args.workspace)
 
     storage = LocalStorage(config.workspace_root)
     prepare_input(storage, job_id, args.input)

@@ -104,10 +104,7 @@ Phone / Browser → FastAPI → Redis/Celery → GPU Worker
 ```bash
 pip install -r requirements-photogrammetry.txt
 
-# Test flow without COLMAP/GPU (--mock):
-python scan.py --input ./samples/test --output ./results/test --mock
-
-# Real run (requires colmap, openmvs, ffmpeg, blender in PATH):
+# Local CLI (requires colmap, ffmpeg, blender; OpenMVS optional):
 python scan.py --input ./samples/cup --output ./results/cup
 ```
 

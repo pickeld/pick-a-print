@@ -4,23 +4,24 @@ from pathlib import Path
 
 from app.engines.base import EngineResult, require_binary, run_command
 from app.pipeline.config import ColmapConfig
+from app.pipeline.hardware import colmap_cuda_available
 
 
 class ColmapEngine:
-    def __init__(self, mock: bool = False) -> None:
-        self.mock = mock
-
     def _colmap(self) -> str | None:
         return require_binary("colmap")
+
+    def _sparse_model_dir(self, sparse_dir: Path) -> Path | None:
+        preferred = sparse_dir / "0"
+        if preferred.exists():
+            return preferred
+        models = sorted(p for p in sparse_dir.iterdir() if p.is_dir())
+        return models[0] if models else None
 
     def extract_features(
         self, images_dir: Path, database: Path, config: ColmapConfig
     ) -> EngineResult:
         database.parent.mkdir(parents=True, exist_ok=True)
-        if self.mock:
-            database.write_bytes(b"mock-colmap-db")
-            return EngineResult(True, "mock features")
-
         colmap = self._colmap()
         if not colmap:
             return EngineResult(False, "colmap not found in PATH")
@@ -34,26 +35,30 @@ class ColmapEngine:
             str(images_dir),
             "--ImageReader.single_camera",
             "1",
+            "--SiftExtraction.use_gpu",
+            "1" if config.use_gpu else "0",
         ]
-        if config.use_gpu:
-            cmd += ["--SiftExtraction.use_gpu", "1"]
         if config.max_image_size:
             cmd += ["--SiftExtraction.max_image_size", str(config.max_image_size)]
-        return run_command(cmd)
+        if not config.use_gpu and config.sift_threads > 0:
+            cmd += ["--SiftExtraction.num_threads", str(config.sift_threads)]
+        return run_command(cmd, timeout=3600 * 2)
 
     def match_features(self, database: Path, config: ColmapConfig) -> EngineResult:
-        if self.mock:
-            return EngineResult(True, "mock matching")
-
         colmap = self._colmap()
         if not colmap:
             return EngineResult(False, "colmap not found in PATH")
 
         matcher = "exhaustive_matcher" if config.matcher == "exhaustive" else "sequential_matcher"
-        cmd = [colmap, matcher, "--database_path", str(database)]
-        if config.use_gpu:
-            cmd += ["--SiftMatching.use_gpu", "1"]
-        return run_command(cmd)
+        cmd = [
+            colmap,
+            matcher,
+            "--database_path",
+            str(database),
+            "--SiftMatching.use_gpu",
+            "1" if config.use_gpu else "0",
+        ]
+        return run_command(cmd, timeout=3600 * 2)
 
     def map_sparse(
         self,
@@ -63,14 +68,6 @@ class ColmapEngine:
         config: ColmapConfig,
     ) -> EngineResult:
         sparse_dir.mkdir(parents=True, exist_ok=True)
-        if self.mock:
-            model = sparse_dir / "0"
-            model.mkdir(parents=True, exist_ok=True)
-            (model / "cameras.bin").write_bytes(b"mock")
-            (model / "images.bin").write_bytes(b"mock")
-            (model / "points3D.bin").write_bytes(b"mock")
-            return EngineResult(True, "mock sparse", [model])
-
         colmap = self._colmap()
         if not colmap:
             return EngineResult(False, "colmap not found in PATH")
@@ -87,6 +84,57 @@ class ColmapEngine:
         ]
         return run_command(cmd, timeout=3600 * 4)
 
+    def export_sparse_pointcloud(self, sparse_dir: Path, output_ply: Path) -> EngineResult:
+        """Export sparse reconstruction as PLY (CPU fallback when dense/CUDA unavailable)."""
+        colmap = self._colmap()
+        if not colmap:
+            return EngineResult(False, "colmap not found in PATH")
+
+        model = self._sparse_model_dir(sparse_dir)
+        if model is None:
+            return EngineResult(False, "No sparse model found for point cloud export")
+
+        output_ply.parent.mkdir(parents=True, exist_ok=True)
+        cmd = [
+            colmap,
+            "model_converter",
+            "--input_path",
+            str(model),
+            "--output_path",
+            str(output_ply),
+            "--output_type",
+            "PLY",
+        ]
+        result = run_command(cmd, timeout=600)
+        if not result.ok:
+            return result
+        if not output_ply.exists():
+            return EngineResult(False, "Sparse point cloud export produced no file")
+        return EngineResult(True, "sparse point cloud exported", [output_ply])
+
+    def poisson_mesh(self, input_ply: Path, output_ply: Path) -> EngineResult:
+        colmap = self._colmap()
+        if not colmap:
+            return EngineResult(False, "colmap not found in PATH")
+        if not input_ply.exists():
+            return EngineResult(False, f"Point cloud not found: {input_ply}")
+
+        output_ply.parent.mkdir(parents=True, exist_ok=True)
+        cmd = [
+            colmap,
+            "poisson_mesher",
+            "--input_path",
+            str(input_ply),
+            "--output_path",
+            str(output_ply),
+        ]
+        result = run_command(cmd, timeout=3600 * 2)
+        if not result.ok:
+            return result
+        if not output_ply.exists():
+            return EngineResult(False, "Poisson mesher produced no output")
+        return EngineResult(True, "poisson mesh created", [output_ply])
+
     def dense_reconstruction(
         self,
         sparse_dir: Path,
@@ -95,22 +143,26 @@ class ColmapEngine:
         config: ColmapConfig,
     ) -> EngineResult:
         dense_dir.mkdir(parents=True, exist_ok=True)
-        if self.mock:
-            (dense_dir / "mock_dense.ply").write_text("ply\nformat ascii 1.0\n", encoding="utf-8")
-            return EngineResult(True, "mock dense")
+
+        if not colmap_cuda_available():
+            fused = dense_dir / "fused.ply"
+            result = self.export_sparse_pointcloud(sparse_dir, fused)
+            if result.ok:
+                return EngineResult(
+                    True,
+                    "CPU mode: exported sparse point cloud (CUDA dense stereo unavailable)",
+                    [fused],
+                )
+            return result
 
         colmap = self._colmap()
         if not colmap:
             return EngineResult(False, "colmap not found in PATH")
 
-        model = sparse_dir / "0"
-        if not model.exists():
-            models = sorted(sparse_dir.iterdir())
-            if not models:
-                return EngineResult(False, "No sparse model found")
-            model = models[0]
+        model = self._sparse_model_dir(sparse_dir)
+        if model is None:
+            return EngineResult(False, "No sparse model found")
 
-        undistorted = dense_dir / "images"
         cmd_undistort = [
             colmap,
             "image_undistorter",
@@ -134,13 +186,14 @@ class ColmapEngine:
             str(dense_dir),
             "--workspace_format",
             "COLMAP",
+            "--PatchMatchStereo.gpu_index",
+            "0",
         ]
-        if config.use_gpu:
-            cmd_stereo += ["--PatchMatchStereo.gpu_index", "0"]
         result = run_command(cmd_stereo, timeout=3600 * 4)
         if not result.ok:
             return result
 
+        fused = dense_dir / "fused.ply"
         cmd_fuse = [
             colmap,
             "stereo_fusion",
@@ -151,6 +204,9 @@ class ColmapEngine:
             "--input_type",
             "geometric",
             "--output_path",
-            str(dense_dir / "fused.ply"),
+            str(fused),
         ]
-        return run_command(cmd_fuse, timeout=3600 * 2)
+        result = run_command(cmd_fuse, timeout=3600 * 2)
+        if not result.ok:
+            return result
+        return EngineResult(True, "dense reconstruction complete", [fused])

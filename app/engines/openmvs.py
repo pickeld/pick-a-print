@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 from app.engines.base import EngineResult, require_binary, run_command
@@ -8,9 +7,6 @@ from app.pipeline.config import OpenMvsConfig
 
 
 class OpenMvsEngine:
-    def __init__(self, mock: bool = False) -> None:
-        self.mock = mock
-
     def _binary(self, name: str) -> str | None:
         return require_binary(name)
 
@@ -19,13 +15,8 @@ class OpenMvsEngine:
         openmvs_dir.mkdir(parents=True, exist_ok=True)
         scene = openmvs_dir / "scene.mvs"
 
-        if self.mock:
-            scene.write_text("mock openmvs scene", encoding="utf-8")
-            return EngineResult(True, "mock scene", [scene])
-
         interface = self._binary("InterfaceCOLMAP")
         if not interface:
-            # Fallback: InterfaceMetashape or manual — document requirement
             return EngineResult(False, "InterfaceCOLMAP not found in PATH")
 
         cmd = [
@@ -47,15 +38,6 @@ class OpenMvsEngine:
         dense = openmvs_dir / "scene_dense.mvs"
         mesh_mvs = openmvs_dir / "scene_mesh.mvs"
         out_ply = mesh_dir / "mesh.ply"
-
-        if self.mock:
-            out_ply.write_text(
-                "ply\nformat ascii 1.0\nelement vertex 8\nproperty float x\n"
-                "property float y\nproperty float z\nelement face 12\n"
-                "property list uchar int vertex_indices\nend_header\n",
-                encoding="utf-8",
-            )
-            return EngineResult(True, "mock mesh", [out_ply])
 
         densify = self._binary("DensifyPointCloud")
         reconstruct = self._binary("ReconstructMesh")

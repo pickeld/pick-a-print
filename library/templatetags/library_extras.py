@@ -34,6 +34,13 @@ def site_label(value):
 
 
 @register.filter
+def get_item(mapping, key):
+    if not mapping:
+        return ""
+    return mapping.get(key, "")
+
+
+@register.filter
 def initials(value):
     if not value:
         return "?"

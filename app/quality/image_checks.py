@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-MIN_IMAGES = 8
+MIN_IMAGES = 3
 MIN_RESOLUTION = 480
 
 

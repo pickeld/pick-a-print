@@ -1,23 +1,28 @@
-# Photogrammetry worker — COLMAP, FFmpeg, Blender, Python tools.
-# OpenMVS is optional (not in Debian repos); set PIPELINE_MOCK=true without it.
-# For GPU + OpenMVS production build, extend with CUDA base image later.
+# Photogrammetry worker — COLMAP, FFmpeg, Blender, OpenMVS, Python tools.
+# Ubuntu 24.04 ships much newer apt packages than 22.04; OpenMVS comes from upstream binaries.
 #
 # Build: docker compose build worker
-# CLI:   docker compose run --rm worker python3 scan.py --input /input --output /output --mock
+# CLI:   docker compose run --rm worker python3 scan.py --input /input --output /output
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
+
+ARG OPENMVS_VERSION=2.4.0
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIPELINE_DATA_DIR=/data/jobs \
-    QT_QPA_PLATFORM=offscreen
+    QT_QPA_PLATFORM=offscreen \
+    PATH="/opt/openmvs:${PATH}"
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
+    wget \
+    unzip \
+    ca-certificates \
     colmap \
     ffmpeg \
     blender \
@@ -26,11 +31,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3 /usr/bin/python
 
+RUN wget -q "https://github.com/cdcseacave/openMVS/releases/download/v${OPENMVS_VERSION}/OpenMVS_Ubuntu_x64.zip" -O /tmp/openmvs.zip \
+    && mkdir -p /opt/openmvs \
+    && unzip -q /tmp/openmvs.zip -d /opt/openmvs \
+    && rm /tmp/openmvs.zip \
+    && chmod +x /opt/openmvs/*
+
 COPY requirements-photogrammetry.txt /app/
-RUN pip3 install --no-cache-dir -r requirements-photogrammetry.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements-photogrammetry.txt
 
 COPY app/ /app/app/
 COPY scan.py /app/scan.py
+COPY services/worker/image-versions.json /etc/image-versions.json
 
 RUN mkdir -p /data/jobs /input /output
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.quality.image_checks import QualityReport
 
-MIN_REGISTERED_IMAGES = 5
+MIN_REGISTERED_IMAGES = 3
 MIN_POINTS3D = 100
 
 

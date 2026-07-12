@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import requests
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+IMAGE_VERSIONS_FILE = BASE_DIR / "services" / "worker" / "image-versions.json"
 CACHE_TTL_SECONDS = 3600
 _cache: dict[str, tuple[float, object]] = {}
 _fetch_lock = threading.Lock()
@@ -22,34 +26,34 @@ DOCKER_IMAGES = [
     {"service": "Scan frontend", "image": "nginx", "tag": "alpine", "source": "docker-compose"},
     {"service": "Library web / worker", "image": "python", "tag": "3.12-slim", "source": "Dockerfile"},
     {"service": "Scan API", "image": "python", "tag": "3.12-slim", "source": "services/api/Dockerfile"},
-    {"service": "Scan worker base", "image": "ubuntu", "tag": "22.04", "source": "services/worker/Dockerfile"},
+    {"service": "Scan worker base", "image": "ubuntu", "tag": "24.04", "source": "services/worker/Dockerfile"},
 ]
 
-# Pipeline tools baked into the scan worker image (apt on Ubuntu 22.04).
+# Pipeline tools in the scan worker image (see services/worker/image-versions.json).
 PIPELINE_TOOLS = [
     {
         "name": "COLMAP",
-        "ubuntu_package": "colmap",
+        "version_key": "colmap",
         "github_repo": "colmap/colmap",
-        "source": "services/worker/Dockerfile (apt)",
+        "source": "worker image (apt)",
     },
     {
         "name": "FFmpeg",
-        "ubuntu_package": "ffmpeg",
+        "version_key": "ffmpeg",
         "github_repo": "FFmpeg/FFmpeg",
-        "source": "services/worker/Dockerfile (apt)",
+        "source": "worker image (apt)",
     },
     {
         "name": "Blender",
-        "ubuntu_package": "blender",
+        "version_key": "blender",
         "github_repo": "blender/blender",
-        "source": "services/worker/Dockerfile (apt)",
+        "source": "worker image (apt)",
     },
     {
         "name": "OpenMVS",
-        "ubuntu_package": None,
+        "version_key": "openmvs",
         "github_repo": "cdcseacave/openMVS",
-        "source": "optional — not in base image",
+        "source": "worker image (GitHub release binary)",
     },
 ]
 
@@ -71,6 +75,12 @@ class ToolReleaseInfo:
     latest: str | None
     status: str  # up_to_date | update_available | not_installed | check_failed | checking
     source: str
+
+
+def _load_image_versions() -> dict[str, str]:
+    if not IMAGE_VERSIONS_FILE.is_file():
+        return {}
+    return json.loads(IMAGE_VERSIONS_FILE.read_text(encoding="utf-8"))
 
 
 def _cache_get(key: str) -> object | None:
@@ -232,40 +242,36 @@ def _fetch_github_latest(repo: str) -> str | None:
         return None
 
 
-def _fetch_ubuntu_package_version(package: str, suite: str = "jammy") -> str | None:
-    try:
-        response = requests.get(
-            f"https://packages.ubuntu.com/{suite}/{package}",
-            timeout=8,
-            headers={"User-Agent": "3d-collection-about-tab"},
-        )
-        if response.status_code != 200:
-            return None
-        match = re.search(rf"<h1>Package:\s*{re.escape(package)}\s*\(([^)]+)\)", response.text)
-        if not match:
-            return None
-        return match.group(1).split(" and others")[0].strip()
-    except requests.RequestException:
-        return None
-
-
-def _upstream_version(version: str | None) -> str | None:
-    if not version:
-        return None
-    cleaned = version.split(":")[-1]
-    cleaned = re.split(r"[-~]", cleaned, maxsplit=1)[0]
-    return cleaned
-
-
-def _tool_status(installed: str | None, latest: str | None, *, in_image: bool) -> str:
-    if not in_image:
-        return "not_installed"
+def _tool_status(installed: str | None, latest: str | None) -> str:
     if latest is None or installed is None:
         return "check_failed"
-    current = _upstream_version(installed)
-    if current and _is_newer(latest, current):
+    if _is_newer(latest, installed):
         return "update_available"
     return "up_to_date"
+
+
+def _build_pipeline_tools() -> list[ToolReleaseInfo]:
+    image_versions = _load_image_versions()
+    results: list[ToolReleaseInfo] = []
+
+    def check_tool(tool: dict) -> ToolReleaseInfo:
+        installed = image_versions.get(tool["version_key"])
+        latest = _fetch_github_latest(tool["github_repo"])
+        return ToolReleaseInfo(
+            name=tool["name"],
+            installed=installed,
+            latest=latest,
+            status=_tool_status(installed, latest),
+            source=tool["source"],
+        )
+
+    with ThreadPoolExecutor(max_workers=len(PIPELINE_TOOLS)) as pool:
+        futures = [pool.submit(check_tool, tool) for tool in PIPELINE_TOOLS]
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    results.sort(key=lambda item: item.name)
+    return results
 
 
 def _build_docker_images() -> list[ImageReleaseInfo]:
@@ -290,42 +296,6 @@ def _build_docker_images() -> list[ImageReleaseInfo]:
                 source=row["source"],
             )
         )
-    return results
-
-
-def _build_pipeline_tools() -> list[ToolReleaseInfo]:
-    results: list[ToolReleaseInfo] = []
-
-    def check_tool(tool: dict) -> ToolReleaseInfo:
-        in_image = tool["ubuntu_package"] is not None
-        installed = None
-        latest = None
-
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = {}
-            if in_image:
-                futures[pool.submit(_fetch_ubuntu_package_version, tool["ubuntu_package"])] = "installed"
-            futures[pool.submit(_fetch_github_latest, tool["github_repo"])] = "latest"
-            for future in as_completed(futures):
-                if futures[future] == "installed":
-                    installed = future.result()
-                else:
-                    latest = future.result()
-
-        return ToolReleaseInfo(
-            name=tool["name"],
-            installed=installed,
-            latest=latest,
-            status=_tool_status(installed, latest, in_image=in_image),
-            source=tool["source"],
-        )
-
-    with ThreadPoolExecutor(max_workers=len(PIPELINE_TOOLS)) as pool:
-        futures = [pool.submit(check_tool, tool) for tool in PIPELINE_TOOLS]
-        for future in as_completed(futures):
-            results.append(future.result())
-
-    results.sort(key=lambda item: item.name)
     return results
 
 

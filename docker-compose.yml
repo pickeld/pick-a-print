@@ -115,7 +115,9 @@ services:
       - scan_data:/data/jobs
     environment:
       PIPELINE_DATA_DIR: /data/jobs
-      PIPELINE_MOCK: ${PIPELINE_MOCK:-true}
+      QT_QPA_PLATFORM: offscreen
+      COLMAP_MAX_IMAGE_SIZE: ${COLMAP_MAX_IMAGE_SIZE:-1600}
+      COLMAP_SIFT_THREADS: ${COLMAP_SIFT_THREADS:-2}
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       MINIO_ENDPOINT: http://minio:9000

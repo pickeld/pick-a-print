@@ -8,25 +8,11 @@ from app.pipeline.config import ExportConfig
 
 
 class BlenderEngine:
-    def __init__(self, mock: bool = False) -> None:
-        self.mock = mock
-
     def export_stl(self, input_mesh: Path, output_stl: Path, config: ExportConfig) -> EngineResult:
         output_stl.parent.mkdir(parents=True, exist_ok=True)
 
-        if self.mock:
-            # Minimal ASCII STL
-            output_stl.write_text(
-                "solid model\n  facet normal 0 0 1\n    outer loop\n"
-                "      vertex 0 0 0\n      vertex 1 0 0\n      vertex 0 1 0\n"
-                "    endloop\n  endfacet\nendsolid model\n",
-                encoding="utf-8",
-            )
-            return EngineResult(True, "mock stl", [output_stl])
-
         blender = require_binary("blender")
         if not blender:
-            # Fallback to trimesh STL export
             try:
                 import trimesh
 
@@ -38,7 +24,7 @@ class BlenderEngine:
 
         scale = 1.0
         if config.target_max_dimension_mm:
-            scale = config.target_max_dimension_mm / 100.0  # applied in script if bbox known
+            scale = config.target_max_dimension_mm / 100.0
 
         script = textwrap.dedent(
             f"""

@@ -166,12 +166,13 @@ def settings_view(request):
     context["updates_available"] = get_cached_updates_available()
 
     if active_tab == "about":
-        from library.dependency_info import DOCKER_IMAGES, PIPELINE_TOOLS
+        from library.dependency_info import DOCKER_IMAGES, PIPELINE_TOOLS, _load_image_versions
 
         context["about_cached"] = peek_cached_about()
         context["cache_ttl_minutes"] = CACHE_TTL_SECONDS // 60
         context["docker_manifest"] = DOCKER_IMAGES
         context["tools_manifest"] = PIPELINE_TOOLS
+        context["image_versions"] = _load_image_versions()
 
     return render(request, "library/settings.html", context)
 

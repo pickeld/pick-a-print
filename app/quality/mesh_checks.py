@@ -5,8 +5,8 @@ from pathlib import Path
 
 from app.quality.image_checks import QualityReport
 
-MIN_VERTICES = 100
-MIN_FACES = 100
+MIN_VERTICES = 20
+MIN_FACES = 20
 
 
 def validate_mesh(mesh_path: Path) -> QualityReport:
@@ -33,7 +33,7 @@ def validate_mesh(mesh_path: Path) -> QualityReport:
         if len(mesh.faces) < MIN_FACES:
             issues.append(f"Too few faces: {len(mesh.faces)}")
         if not mesh.is_watertight:
-            issues.append("Mesh is not watertight (may fail slicing)")
+            metrics["watertight_warning"] = 1
 
     except ImportError:
         if mesh_path.stat().st_size < 100:

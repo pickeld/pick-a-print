@@ -101,13 +101,13 @@
   </div>
 
   <h3 class="about-section-title">Pipeline tools</h3>
-  <p class="about-hint">Versions baked into the scan worker image (Ubuntu 22.04 apt) vs latest upstream release.</p>
+  <p class="about-hint">Pinned versions in the scan worker image vs latest upstream release.</p>
   <div class="table-wrap">
     <table class="dep-table">
       <thead>
         <tr>
           <th>Tool</th>
-          <th>In image (Ubuntu 22.04)</th>
+          <th>In worker image</th>
           <th>Latest upstream</th>
           <th>Status</th>
         </tr>
@@ -126,7 +126,7 @@
           {% for tool in tools_manifest %}
           <tr>
             <td><strong>{{ tool.name }}</strong><div class="dep-source">{{ tool.source }}</div></td>
-            <td><span class="text-muted">…</span></td>
+            <td>{{ image_versions|get_item:tool.version_key|default:"…" }}</td>
             <td><span class="text-muted">…</span></td>
             <td><span class="badge badge-dep badge-dep-muted">Checking…</span></td>
           </tr>

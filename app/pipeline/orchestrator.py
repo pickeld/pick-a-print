@@ -12,8 +12,9 @@ from app.engines.trimesh_engine import TrimeshEngine
 from app.models.enums import JobStage, PIPELINE_STAGES
 from app.models.job import Job
 from app.pipeline.config import PipelineConfig
+from app.pipeline.hardware import colmap_cuda_available, openmvs_available
+from app.pipeline.preview import build_preview_warnings, count_frames, is_placeholder_mesh
 from app.pipeline.workspace import JobWorkspace
-from app.pipeline.preview import count_frames, pipeline_mock_enabled
 from app.quality.image_checks import validate_images
 from app.quality.mesh_checks import validate_mesh
 from app.quality.reconstruction_checks import validate_sparse_model
@@ -32,14 +33,19 @@ class ReconstructionPipeline:
         self.config = config or PipelineConfig.from_env()
         self.job = Job.load(self.config.workspace_root, job_id)
         self.ws = JobWorkspace(self.config.workspace_root, job_id)
-        self.ffmpeg = FfmpegEngine(mock=self.config.mock)
-        self.colmap = ColmapEngine(mock=self.config.mock)
-        self.openmvs = OpenMvsEngine(mock=self.config.mock)
-        self.trimesh = TrimeshEngine(mock=self.config.mock)
-        self.blender = BlenderEngine(mock=self.config.mock)
+        self.ffmpeg = FfmpegEngine()
+        self.colmap = ColmapEngine()
+        self.openmvs = OpenMvsEngine()
+        self.trimesh = TrimeshEngine()
+        self.blender = BlenderEngine()
+        self._used_cpu_sparse_fallback = False
 
     def run(self, from_stage: JobStage | None = None) -> Job:
         self.ws.ensure_dirs()
+        self.job.metadata["gpu_available"] = colmap_cuda_available()
+        self.job.metadata["openmvs_available"] = openmvs_available()
+        self.job.save(self.config.workspace_root)
+
         start_idx = 0
         if from_stage is not None:
             start_idx = PIPELINE_STAGES.index(from_stage)
@@ -97,12 +103,14 @@ class ReconstructionPipeline:
 
     def _stage_preprocessing(self) -> None:
         self._extract_or_copy_images()
-        if not self.config.mock:
-            report = validate_images(self.ws.frames_dir)
-            if not report.ok:
-                raise StageError(f"Image validation failed: {report.issues}")
+        report = validate_images(self.ws.frames_dir)
+        if not report.ok:
+            raise StageError(f"Image validation failed: {report.issues}")
 
     def _stage_colmap_features(self) -> None:
+        if not colmap_cuda_available():
+            self.job.append_log("CUDA unavailable — using CPU SIFT extraction", JobStage.COLMAP_FEATURES)
+            self.job.save(self.config.workspace_root)
         result = self.colmap.extract_features(
             self.ws.frames_dir,
             self.ws.colmap_database(),
@@ -141,19 +149,50 @@ class ReconstructionPipeline:
         )
         if not result.ok:
             raise StageError(result.message)
-        result = self.openmvs.prepare_scene(
-            self.ws.colmap_dense_dir(),
-            self.ws.openmvs_dir,
-        )
-        if not result.ok:
-            raise StageError(result.message)
+
+        self._used_cpu_sparse_fallback = "CPU mode" in result.message
+        if self._used_cpu_sparse_fallback:
+            self.job.append_log(result.message, JobStage.DENSE_RECONSTRUCTION)
+            self.job.save(self.config.workspace_root)
+            return
+
+        if openmvs_available():
+            result = self.openmvs.prepare_scene(
+                self.ws.colmap_dense_dir(),
+                self.ws.openmvs_dir,
+            )
+            if not result.ok:
+                raise StageError(result.message)
+        else:
+            self.job.append_log(
+                "OpenMVS not installed — meshing will use COLMAP Poisson on dense/sparse cloud",
+                JobStage.DENSE_RECONSTRUCTION,
+            )
+            self.job.save(self.config.workspace_root)
 
     def _stage_meshing(self) -> None:
-        result = self.openmvs.create_mesh(
-            self.ws.openmvs_dir,
-            self.ws.mesh_dir,
-            self.config.openmvs,
-        )
+        mesh_out = self.ws.mesh_dir / "mesh.ply"
+
+        if openmvs_available() and (self.ws.openmvs_dir / "scene.mvs").exists():
+            result = self.openmvs.create_mesh(
+                self.ws.openmvs_dir,
+                self.ws.mesh_dir,
+                self.config.openmvs,
+            )
+            if result.ok:
+                return
+            self.job.append_log(f"OpenMVS meshing failed ({result.message}), trying COLMAP Poisson", JobStage.MESHING)
+            self.job.save(self.config.workspace_root)
+
+        point_cloud = self._find_point_cloud()
+        result = self.colmap.poisson_mesh(point_cloud, mesh_out)
+        if not result.ok:
+            self.job.append_log(
+                f"COLMAP Poisson failed ({result.message}), trying trimesh convex hull",
+                JobStage.MESHING,
+            )
+            self.job.save(self.config.workspace_root)
+            result = self.trimesh.mesh_from_pointcloud(point_cloud, mesh_out)
         if not result.ok:
             raise StageError(result.message)
 
@@ -162,10 +201,9 @@ class ReconstructionPipeline:
         result = self.trimesh.repair_mesh(mesh_in, self.ws.output_ply())
         if not result.ok:
             raise StageError(result.message)
-        if not self.config.mock:
-            report = validate_mesh(self.ws.output_ply())
-            if not report.ok:
-                raise StageError(f"Mesh validation failed: {report.issues}")
+        report = validate_mesh(self.ws.output_ply())
+        if not report.ok:
+            raise StageError(f"Mesh validation failed: {report.issues}")
 
     def _stage_exporting(self) -> None:
         ply = self.ws.output_ply()
@@ -222,8 +260,23 @@ class ReconstructionPipeline:
 
         frame_count = count_frames(self.ws.frames_dir)
         self.job.metadata["frame_count"] = frame_count
-        self.job.metadata["mock_mode"] = self.config.mock or pipeline_mock_enabled()
+        self.job.metadata["gpu_available"] = colmap_cuda_available()
         self.job.save(self.config.workspace_root)
+
+    def _find_point_cloud(self) -> Path:
+        fused = self.ws.colmap_dense_dir() / "fused.ply"
+        if fused.exists():
+            return fused
+        sparse_ply = self.ws.colmap_dense_dir() / "sparse_points.ply"
+        if sparse_ply.exists():
+            return sparse_ply
+        result = self.colmap.export_sparse_pointcloud(
+            self.ws.colmap_sparse_dir(),
+            sparse_ply,
+        )
+        if result.ok and sparse_ply.exists():
+            return sparse_ply
+        raise StageError("No point cloud available for meshing")
 
     def _find_mesh_input(self) -> Path:
         for pattern in ("*.ply", "*.obj"):
@@ -236,21 +289,20 @@ class ReconstructionPipeline:
         import json
 
         ply = self.ws.output_ply()
-        from app.pipeline.preview import build_preview_warnings, is_mock_placeholder_mesh
-
-        mock_mode = bool(self.job.metadata.get("mock_mode", self.config.mock))
         frame_count = int(self.job.metadata.get("frame_count") or count_frames(self.ws.frames_dir))
-        placeholder = is_mock_placeholder_mesh(ply)
+        placeholder = is_placeholder_mesh(ply)
         report = {
             "job_id": self.job.id,
             "stage": self.job.stage.value,
-            "mock_mode": mock_mode,
+            "gpu_available": bool(self.job.metadata.get("gpu_available", colmap_cuda_available())),
+            "openmvs_available": bool(self.job.metadata.get("openmvs_available", openmvs_available())),
+            "cpu_sparse_fallback": self._used_cpu_sparse_fallback,
             "frame_count": frame_count,
             "placeholder_mesh": placeholder,
             "warnings": build_preview_warnings(
-                mock_mode=mock_mode,
                 frame_count=frame_count,
                 placeholder_mesh=placeholder,
+                gpu_available=bool(self.job.metadata.get("gpu_available", colmap_cuda_available())),
             ),
             "outputs": {
                 "ply": str(ply),

@@ -15,9 +15,9 @@ from app.pipeline.glb_export import ensure_glb_from_ply, is_valid_glb
 from app.pipeline.preview import (
     build_preview_warnings,
     count_frames,
-    is_mock_placeholder_mesh,
-    pipeline_mock_enabled,
+    is_placeholder_mesh,
 )
+from app.pipeline.hardware import colmap_cuda_available
 from app.pipeline.stages import STAGE_DESCRIPTIONS
 from app.pipeline.workspace import JobWorkspace
 from app.storage.local import LocalStorage
@@ -233,24 +233,22 @@ def _preview_status(scan_job: ScanJob, output_paths: dict[str, Path]) -> dict:
         or pipeline_job.metadata.get("frame_count")
         or count_frames(ws.frames_dir)
     )
-    mock_mode = bool(
-        report.get("mock_mode", pipeline_job.metadata.get("mock_mode", pipeline_mock_enabled()))
+    gpu_available = bool(
+        report.get("gpu_available", pipeline_job.metadata.get("gpu_available", colmap_cuda_available()))
     )
     ply = output_paths.get("ply")
     placeholder = bool(report.get("placeholder_mesh")) or (
-        bool(ply) and is_mock_placeholder_mesh(ply)
+        bool(ply) and is_placeholder_mesh(ply)
     )
-    if placeholder:
-        mock_mode = True
     warnings = report.get("warnings")
     if not warnings:
         warnings = build_preview_warnings(
-            mock_mode=mock_mode,
             frame_count=frame_count,
             placeholder_mesh=placeholder,
+            gpu_available=gpu_available,
         )
     return {
-        "mock_mode": mock_mode,
+        "gpu_available": gpu_available,
         "frame_count": frame_count,
         "placeholder_mesh": placeholder,
         "warnings": warnings,
@@ -271,7 +269,7 @@ def build_status_payload(scan_job: ScanJob) -> dict:
     outputs = {}
     viewer_url = None
     preview = {
-        "mock_mode": pipeline_mock_enabled(),
+        "gpu_available": colmap_cuda_available(),
         "frame_count": count_frames(JobWorkspace(workspace_root(), str(scan_job.job_id)).frames_dir),
         "placeholder_mesh": False,
         "warnings": [],
