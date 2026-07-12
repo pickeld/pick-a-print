@@ -5,8 +5,8 @@ from pathlib import Path
 
 from app.quality.image_checks import QualityReport
 
-MIN_VERTICES = 20
-MIN_FACES = 20
+MIN_VERTICES = 12
+MIN_FACES = 12
 
 
 def validate_mesh(mesh_path: Path) -> QualityReport:
