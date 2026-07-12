@@ -59,4 +59,22 @@ def colmap_cuda_available() -> bool:
 
 @lru_cache(maxsize=1)
 def openmvs_available() -> bool:
-    return bool(shutil.which("InterfaceCOLMAP") and shutil.which("ReconstructMesh"))
+    binary = shutil.which("InterfaceCOLMAP")
+    if not binary or not shutil.which("ReconstructMesh"):
+        return False
+    try:
+        proc = subprocess.run(
+            [binary, "-h"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return False
+    combined = f"{proc.stdout}\n{proc.stderr}".lower()
+    if "rosetta error" in combined or "cannot execute binary" in combined:
+        return False
+    if "not found" in combined and proc.returncode != 0:
+        return False
+    return proc.returncode in (0, 1)

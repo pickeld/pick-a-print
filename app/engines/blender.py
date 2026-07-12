@@ -11,16 +11,14 @@ class BlenderEngine:
     def export_stl(self, input_mesh: Path, output_stl: Path, config: ExportConfig) -> EngineResult:
         output_stl.parent.mkdir(parents=True, exist_ok=True)
 
+        if input_mesh.suffix.lower() == ".ply":
+            result = self._stl_via_trimesh(input_mesh, output_stl)
+            if result.ok:
+                return result
+
         blender = require_binary("blender")
         if not blender:
-            try:
-                import trimesh
-
-                mesh = trimesh.load(str(input_mesh), force="mesh")
-                mesh.export(str(output_stl))
-                return EngineResult(True, "stl via trimesh fallback", [output_stl])
-            except Exception as exc:
-                return EngineResult(False, f"blender not found and trimesh fallback failed: {exc}")
+            return self._stl_via_trimesh(input_mesh, output_stl)
 
         scale = 1.0
         if config.target_max_dimension_mm:
@@ -47,3 +45,13 @@ class BlenderEngine:
             [blender, "--background", "--python", str(script_path)],
             timeout=600,
         )
+
+    def _stl_via_trimesh(self, input_mesh: Path, output_stl: Path) -> EngineResult:
+        try:
+            import trimesh
+
+            mesh = trimesh.load(str(input_mesh), force="mesh")
+            mesh.export(str(output_stl))
+            return EngineResult(True, "stl via trimesh", [output_stl])
+        except Exception as exc:
+            return EngineResult(False, f"trimesh STL export failed: {exc}")

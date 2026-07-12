@@ -119,12 +119,19 @@ class ColmapEngine:
         if not input_ply.exists():
             return EngineResult(False, f"Point cloud not found: {input_ply}")
 
+        from app.engines.trimesh_engine import TrimeshEngine
+
+        prepared = output_ply.parent / "poisson_input.ply"
+        prep = TrimeshEngine().prepare_poisson_pointcloud(input_ply, prepared)
+        if not prep.ok:
+            return prep
+
         output_ply.parent.mkdir(parents=True, exist_ok=True)
         cmd = [
             colmap,
             "poisson_mesher",
             "--input_path",
-            str(input_ply),
+            str(prepared),
             "--output_path",
             str(output_ply),
         ]

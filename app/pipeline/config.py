@@ -33,7 +33,7 @@ class OpenMvsConfig:
 
 @dataclass
 class FfmpegConfig:
-    fps: float = 2.0
+    fps: float = 4.0
     max_frames: int = 200
     quality: int = 2  # 1=best, 31=worst
     max_width: int = 1600  # downscale 4K phone video for CPU extraction/COLMAP

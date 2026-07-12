@@ -53,6 +53,7 @@ class ReconstructionPipeline:
         stages_to_run = PIPELINE_STAGES[start_idx:]
         for stage in stages_to_run:
             if stage == JobStage.COMPLETED:
+                self.job.error = None
                 self.job.touch(JobStage.COMPLETED)
                 self.job.save(self.config.workspace_root)
                 break
@@ -188,7 +189,14 @@ class ReconstructionPipeline:
         result = self.colmap.poisson_mesh(point_cloud, mesh_out)
         if not result.ok:
             self.job.append_log(
-                f"COLMAP Poisson failed ({result.message}), trying trimesh convex hull",
+                f"COLMAP Poisson failed ({result.message}), trying voxel mesh",
+                JobStage.MESHING,
+            )
+            self.job.save(self.config.workspace_root)
+            result = self.trimesh.mesh_from_pointcloud_voxel(point_cloud, mesh_out)
+        if not result.ok:
+            self.job.append_log(
+                f"Voxel mesh failed ({result.message}), trying convex hull",
                 JobStage.MESHING,
             )
             self.job.save(self.config.workspace_root)
@@ -196,9 +204,12 @@ class ReconstructionPipeline:
         if not result.ok:
             raise StageError(result.message)
 
+        self._color_point_cloud = point_cloud
+
     def _stage_repairing(self) -> None:
         mesh_in = self._find_mesh_input()
-        result = self.trimesh.repair_mesh(mesh_in, self.ws.output_ply())
+        color_cloud = getattr(self, "_color_point_cloud", None) or self._find_point_cloud_optional()
+        result = self.trimesh.repair_mesh(mesh_in, self.ws.output_ply(), color_cloud)
         if not result.ok:
             raise StageError(result.message)
         report = validate_mesh(self.ws.output_ply())
@@ -207,7 +218,10 @@ class ReconstructionPipeline:
 
     def _stage_exporting(self) -> None:
         ply = self.ws.output_ply()
-        result = self.trimesh.export_formats(ply, self.ws.output_obj(), self.ws.output_glb())
+        color_cloud = getattr(self, "_color_point_cloud", None) or self._find_point_cloud_optional()
+        result = self.trimesh.export_formats(
+            ply, self.ws.output_obj(), self.ws.output_glb(), color_point_cloud=color_cloud
+        )
         if not result.ok:
             raise StageError(result.message)
         result = self.blender.export_stl(
@@ -277,6 +291,15 @@ class ReconstructionPipeline:
         if result.ok and sparse_ply.exists():
             return sparse_ply
         raise StageError("No point cloud available for meshing")
+
+    def _find_point_cloud_optional(self) -> Path | None:
+        fused = self.ws.colmap_dense_dir() / "fused.ply"
+        if fused.exists():
+            return fused
+        sparse_ply = self.ws.colmap_dense_dir() / "sparse_points.ply"
+        if sparse_ply.exists():
+            return sparse_ply
+        return None
 
     def _find_mesh_input(self) -> Path:
         for pattern in ("*.ply", "*.obj"):
