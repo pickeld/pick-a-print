@@ -1,0 +1,62 @@
+{% extends "library/base.html" %}
+{% load static %}
+
+{% block title %}{{ scan_job.title }} — Scan{% endblock %}
+
+{% block content %}
+<div class="page-header scan-job-header">
+  <div>
+    <h2>{{ scan_job.title }}</h2>
+    <p class="text-muted">Job <code>{{ scan_job.job_id }}</code></p>
+  </div>
+  <div class="scan-job-actions">
+    <a href="{% url 'scan_list' %}" class="btn btn-ghost">← New scan</a>
+  </div>
+</div>
+
+<div class="scan-job-layout" id="scan-job" data-status-url="{% url 'scan_status' job_id=scan_job.job_id %}" data-import-url="{% url 'scan_import' job_id=scan_job.job_id %}" data-download-base="{% url 'scan_download' job_id=scan_job.job_id filename='__FILE__' %}">
+  <div class="form-card">
+    <div class="scan-progress-block">
+      <div class="scan-progress-meta">
+        <span class="badge scan-badge scan-badge--{{ scan_job.stage|lower }}" id="scan-stage-badge">{{ scan_job.stage }}</span>
+        <span id="scan-progress-text">{{ scan_job.progress }}%</span>
+      </div>
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-fill" id="scan-progress-bar" style="width: {{ scan_job.progress }}%"></div>
+      </div>
+    </div>
+
+    <ol class="scan-steps" id="scan-steps">
+      {% for step in pipeline_steps %}
+        <li class="scan-step scan-step--{{ step.state }}" data-step="{{ step.key }}">
+          <span class="scan-step-marker"></span>
+          <span class="scan-step-label">{{ step.label }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+
+    <div id="scan-error" class="scan-error{% if not scan_job.error %} hidden{% endif %}">{{ scan_job.error }}</div>
+
+    <div class="scan-outputs hidden" id="scan-outputs">
+      <h3>Outputs</h3>
+      <div class="scan-output-actions" id="scan-output-links"></div>
+      <form method="post" action="{% url 'scan_import' job_id=scan_job.job_id %}" id="scan-import-form">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary" id="scan-import-btn">Save STL to Library</button>
+      </form>
+      <p class="helptext" id="scan-import-note"></p>
+    </div>
+  </div>
+
+  <div class="form-card scan-log-card">
+    <div class="scan-log-header">
+      <h3>Logs</h3>
+      <span class="text-muted" id="scan-log-count">{{ status.log_lines|length }} lines</span>
+    </div>
+    <pre class="log-panel" id="scan-log-panel">{% for line in status.log_lines %}{{ line }}
+{% endfor %}</pre>
+  </div>
+</div>
+
+<script src="{% static 'library/js/scan.js' %}"></script>
+{% endblock %}

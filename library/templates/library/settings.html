@@ -5,9 +5,18 @@
 {% block content %}
 <div class="page-header">
   <h2>Settings</h2>
-  <p>API access for the browser extension</p>
+  <p>{% if active_tab == 'about' %}Docker images and pipeline tool releases{% else %}API access for the browser extension{% endif %}</p>
 </div>
 
+<div class="tabs">
+  <a href="?tab=api" class="tab {% if active_tab == 'api' %}active{% endif %}">API &amp; Extension</a>
+  <a href="?tab=about" class="tab {% if active_tab == 'about' %}active{% endif %}">
+    About
+    {% if updates_available %}<span class="tab-dot" title="Updates available"></span>{% endif %}
+  </a>
+</div>
+
+{% if active_tab == 'api' %}
 <div class="form-card" style="max-width:640px">
   <div class="form-group">
     <label>API Base URL</label>
@@ -30,4 +39,96 @@
     <li>Click the extension icon and paste API URL + Token</li>
   </ol>
 </div>
+
+{% else %}
+<div class="about-panel">
+  <div class="about-summary">
+    <p class="about-hint" style="margin:0">Check whether Docker images or pipeline tools have newer releases before rebuilding.</p>
+    <div class="about-actions">
+      {% if updates_available %}
+      <span class="badge badge-update">Rebuild recommended</span>
+      {% endif %}
+      <a href="?tab=about&amp;refresh=1" class="btn btn-ghost btn-sm">Refresh checks</a>
+    </div>
+  </div>
+  <p class="about-meta">Last checked {{ checked_at }} · results cached for {{ cache_ttl_minutes }} min</p>
+
+  <h3 class="about-section-title">Docker images</h3>
+  <div class="table-wrap">
+    <table class="dep-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Image</th>
+          <th>Current tag</th>
+          <th>Latest release</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for img in docker_images %}
+        <tr>
+          <td>
+            <strong>{{ img.service }}</strong>
+            <div class="dep-source">{{ img.source }}</div>
+          </td>
+          <td><code>{{ img.image }}</code></td>
+          <td><code>{{ img.tag }}</code></td>
+          <td>{% if img.latest %}{{ img.latest }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td>
+            {% if img.status == 'up_to_date' %}
+            <span class="badge badge-dep badge-dep-ok">Up to date</span>
+            {% elif img.status == 'update_available' %}
+            <span class="badge badge-dep badge-dep-warn">Update available</span>
+            {% elif img.status == 'floating' %}
+            <span class="badge badge-dep badge-dep-info">Floating tag</span>
+            {% elif img.status == 'check_failed' %}
+            <span class="badge badge-dep badge-dep-muted">Check failed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="about-section-title">Pipeline tools</h3>
+  <p class="about-hint">Versions baked into the scan worker image (Ubuntu 22.04 apt) vs latest upstream release.</p>
+  <div class="table-wrap">
+    <table class="dep-table">
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>In image (Ubuntu 22.04)</th>
+          <th>Latest upstream</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tool in pipeline_tools %}
+        <tr>
+          <td>
+            <strong>{{ tool.name }}</strong>
+            <div class="dep-source">{{ tool.source }}</div>
+          </td>
+          <td>{% if tool.installed %}{{ tool.installed }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td>{% if tool.latest %}{{ tool.latest }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td>
+            {% if tool.status == 'up_to_date' %}
+            <span class="badge badge-dep badge-dep-ok">Up to date</span>
+            {% elif tool.status == 'update_available' %}
+            <span class="badge badge-dep badge-dep-warn">Update available</span>
+            {% elif tool.status == 'not_installed' %}
+            <span class="badge badge-dep badge-dep-muted">Not in base image</span>
+            {% elif tool.status == 'check_failed' %}
+            <span class="badge badge-dep badge-dep-muted">Check failed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

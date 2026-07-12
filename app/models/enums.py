@@ -1,4 +1,8 @@
-from enum import StrEnum
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    """Python 3.10-compatible StrEnum."""
 
 
 class JobStage(StrEnum):

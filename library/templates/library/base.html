@@ -35,6 +35,9 @@
           <a href="{% url 'model_save' %}" class="nav-link {% if request.resolver_match.url_name == 'model_save' %}active{% endif %}">
             <span>➕</span> Save Model
           </a>
+          <a href="{% url 'scan_list' %}" class="nav-link {% if request.resolver_match.url_name == 'scan_list' or request.resolver_match.url_name == 'scan_job' %}active{% endif %}">
+            <span>📷</span> 3D Scan
+          </a>
           <a href="{% url 'settings' %}" class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
             <span>⚙️</span> Settings
           </a>
@@ -75,6 +78,7 @@
           <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search...">
         </form>
         <div class="topbar-actions">
+          <a href="{% url 'scan_list' %}" class="btn btn-secondary">📷 Scan</a>
           <a href="{% url 'model_save' %}" class="btn btn-primary">+ Save</a>
         </div>
       </header>

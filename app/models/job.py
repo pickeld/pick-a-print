@@ -24,10 +24,18 @@ class Job:
     progress: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
     stage_logs: dict[str, str] = field(default_factory=dict)
+    log_lines: list[str] = field(default_factory=list)
 
     @classmethod
     def create(cls, job_id: str | None = None) -> Job:
         return cls(id=job_id or str(uuid4()))
+
+    def append_log(self, message: str, stage: JobStage | None = None) -> None:
+        label = (stage or self.stage).value
+        line = f"[{_utcnow()}] [{label}] {message}"
+        self.log_lines.append(line)
+        prev = self.stage_logs.get(label, "")
+        self.stage_logs[label] = f"{prev}\n{message}".strip() if prev else message
 
     def touch(self, stage: JobStage | None = None) -> None:
         self.updated_at = _utcnow()
@@ -54,6 +62,8 @@ class Job:
             return cls.create(job_id)
         data = json.loads(path.read_text(encoding="utf-8"))
         data["stage"] = JobStage(data["stage"])
+        data.setdefault("log_lines", [])
+        data.setdefault("stage_logs", {})
         return cls(**data)
 
     def to_dict(self) -> dict[str, Any]:

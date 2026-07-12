@@ -1,0 +1,73 @@
+{% extends "library/base.html" %}
+
+{% block title %}3D Scan — 3D Library{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>3D Scan</h2>
+  <p>Upload photos, a video, or a .zip archive to generate a printable STL model</p>
+</div>
+
+<div class="scan-layout">
+  <div class="form-card">
+    <h3 class="scan-card-title">New scan</h3>
+    <form method="post" enctype="multipart/form-data" id="scan-upload-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="scan-files">Photos, video, or .zip</label>
+        <input type="file" id="scan-files" name="files" multiple required accept="image/*,video/*,.zip,.mp4,.mov,.webm">
+        <div class="helptext">Upload individual photos, a video, or a .zip containing images/video. At least 8 photos recommended.</div>
+      </div>
+
+      <div class="form-group">
+        <label>{{ form.title.label }}</label>
+        {{ form.title }}
+      </div>
+      <div class="form-group">
+        <label>{{ form.tag_names.label }}</label>
+        {{ form.tag_names }}
+      </div>
+      {% if form.collections.field.queryset %}
+      <div class="form-group">
+        <label>{{ form.collections.label }}</label>
+        {{ form.collections }}
+      </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="scan-submit-btn">Start scan</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="form-card">
+    <h3 class="scan-card-title">Pipeline steps</h3>
+    <ol class="scan-steps scan-steps--static">
+      {% for step in pipeline_steps %}
+        <li class="scan-step">
+          <span class="scan-step-marker"></span>
+          <span class="scan-step-label">{{ step.label }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+
+{% if recent %}
+<section class="scan-recent">
+  <h3>Recent scans</h3>
+  <div class="scan-recent-list">
+    {% for job in recent %}
+      <a href="{% url 'scan_job' job_id=job.job_id %}" class="scan-recent-item">
+        <div>
+          <strong>{{ job.title }}</strong>
+          <div class="text-muted">{{ job.created_at|date:"M j, Y H:i" }} · {{ job.input_file_count }} file(s)</div>
+        </div>
+        <span class="badge scan-badge scan-badge--{{ job.stage|lower }}">{{ job.stage }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
