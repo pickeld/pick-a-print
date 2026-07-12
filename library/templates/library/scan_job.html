@@ -70,12 +70,18 @@
     <div class="form-card">
       <div class="scan-progress-block">
         <div class="scan-progress-meta">
-          <span class="badge scan-badge scan-badge--{{ scan_job.stage|lower }}" id="scan-stage-badge">{{ scan_job.stage }}</span>
+          <span class="badge scan-badge scan-badge--{{ scan_job.stage|lower }}" id="scan-stage-badge">{{ status.stage_label|default:scan_job.stage }}</span>
           <span id="scan-progress-text">{{ scan_job.progress }}%</span>
         </div>
-        <div class="progress-track" aria-hidden="true">
+        <div class="progress-track{% if not scan_job.is_completed and scan_job.stage != 'FAILED' %} progress-track--live{% endif %}" aria-hidden="true">
           <div class="progress-fill" id="scan-progress-bar" style="width: {{ scan_job.progress }}%"></div>
         </div>
+        <p class="scan-activity" id="scan-activity">{% if status.activity %}{{ status.activity }}{% endif %}</p>
+        <p class="scan-heartbeat text-muted" id="scan-heartbeat"></p>
+        <p class="scan-stage-hint text-muted hidden" id="scan-stage-hint">{% if status.stage_hint %}{{ status.stage_hint }}{% endif %}</p>
+        <p class="scan-stall-warning hidden" id="scan-stall-warning">
+          No progress update in a while. The worker may still be busy on a long stage — check Jetson logs if this persists.
+        </p>
       </div>
 
       <ol class="scan-steps" id="scan-steps">

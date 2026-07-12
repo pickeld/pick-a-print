@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -9,6 +10,7 @@ from django.core.files import File
 from django.db import transaction
 
 from app.models.enums import JobStage, PIPELINE_STAGES
+from app.models.progress import STAGE_HINTS, stale_after_seconds
 from app.pipeline.input_extract import ARCHIVE_EXTENSIONS, MEDIA_EXTENSIONS
 from app.models.job import Job as PipelineJob
 from app.pipeline.glb_export import ensure_glb_from_ply, is_valid_glb
@@ -267,6 +269,40 @@ def _preview_status(scan_job: ScanJob, output_paths: dict[str, Path]) -> dict:
     }
 
 
+def _parse_utc_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _worker_status(stage: str, *, completed: bool, failed: bool, seconds_since_update: int | None) -> str:
+    if completed:
+        return "completed"
+    if failed:
+        return "failed"
+    if stage == JobStage.UPLOADED.value and (seconds_since_update is None or seconds_since_update > 30):
+        return "queued"
+    if seconds_since_update is None:
+        return "active"
+    try:
+        stale_after = stale_after_seconds(JobStage(stage))
+    except ValueError:
+        stale_after = 900
+    if seconds_since_update > stale_after:
+        return "possibly_stalled"
+    return "active"
+
+
+def _latest_activity(pipeline_job) -> str | None:
+    if pipeline_job.log_lines:
+        return pipeline_job.log_lines[-1]
+    stage = pipeline_job.stage.value if isinstance(pipeline_job.stage, JobStage) else str(pipeline_job.stage)
+    return pipeline_job.stage_logs.get(stage) or None
+
+
 def build_status_payload(scan_job: ScanJob) -> dict:
     scan_job = sync_scan_job(scan_job)
     pipeline_job = load_pipeline_job(str(scan_job.job_id))
@@ -294,12 +330,40 @@ def build_status_payload(scan_job: ScanJob) -> dict:
             viewer_url = outputs["glb"]
         preview = _preview_status(scan_job, output_paths)
 
+    stage_value = scan_job.stage
+    try:
+        stage_enum = JobStage(stage_value)
+        stage_label = STAGE_DESCRIPTIONS.get(stage_enum, stage_value.replace("_", " ").title())
+        stage_hint = STAGE_HINTS.get(stage_enum)
+    except ValueError:
+        stage_label = stage_value.replace("_", " ").title()
+        stage_hint = None
+
+    updated_at = pipeline_job.updated_at
+    updated_dt = _parse_utc_timestamp(updated_at)
+    seconds_since_update = None
+    if updated_dt is not None:
+        seconds_since_update = max(0, int((datetime.now(timezone.utc) - updated_dt).total_seconds()))
+
+    worker_status = _worker_status(
+        stage_value,
+        completed=scan_job.is_completed,
+        failed=failed,
+        seconds_since_update=seconds_since_update,
+    )
+
     return {
         "job_id": str(scan_job.job_id),
         "title": scan_job.title,
         "stage": scan_job.stage,
+        "stage_label": stage_label,
+        "stage_hint": stage_hint,
         "progress": scan_job.progress,
         "error": scan_job.error or None,
+        "updated_at": updated_at,
+        "seconds_since_update": seconds_since_update,
+        "worker_status": worker_status,
+        "activity": _latest_activity(pipeline_job),
         "log_lines": pipeline_job.log_lines,
         "stage_logs": pipeline_job.stage_logs,
         "steps": steps,

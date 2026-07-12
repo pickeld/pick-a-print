@@ -6,7 +6,12 @@
   const downloadBase = root.dataset.downloadBase;
   const progressBar = document.getElementById("scan-progress-bar");
   const progressText = document.getElementById("scan-progress-text");
+  const progressTrack = document.querySelector(".scan-progress-block .progress-track");
   const stageBadge = document.getElementById("scan-stage-badge");
+  const activityEl = document.getElementById("scan-activity");
+  const heartbeatEl = document.getElementById("scan-heartbeat");
+  const stageHintEl = document.getElementById("scan-stage-hint");
+  const stallWarningEl = document.getElementById("scan-stall-warning");
   const stepsEl = document.getElementById("scan-steps");
   const logPanel = document.getElementById("scan-log-panel");
   const logCount = document.getElementById("scan-log-count");
@@ -107,13 +112,77 @@
     }
   }
 
+  function formatDuration(seconds) {
+    if (seconds == null) return "";
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m ago`;
+  }
+
+  function workerStatusLabel(status) {
+    switch (status) {
+      case "queued":
+        return "Queued — waiting for worker";
+      case "active":
+        return "Worker active";
+      case "possibly_stalled":
+        return "No recent updates";
+      case "completed":
+        return "Completed";
+      case "failed":
+        return "Failed";
+      default:
+        return "";
+    }
+  }
+
+  function updateHeartbeat(data) {
+    const parts = [];
+    const statusLabel = workerStatusLabel(data.worker_status);
+    if (statusLabel) parts.push(statusLabel);
+    if (data.seconds_since_update != null && !data.completed && !data.failed) {
+      parts.push(`last update ${formatDuration(data.seconds_since_update)}`);
+    }
+    if (heartbeatEl) {
+      heartbeatEl.textContent = parts.join(" · ");
+    }
+
+    if (stageHintEl) {
+      if (data.stage_hint && !data.completed && !data.failed) {
+        stageHintEl.textContent = data.stage_hint;
+        stageHintEl.classList.remove("hidden");
+      } else {
+        stageHintEl.classList.add("hidden");
+      }
+    }
+
+    if (stallWarningEl) {
+      const showStall = data.worker_status === "possibly_stalled";
+      stallWarningEl.classList.toggle("hidden", !showStall);
+    }
+
+    if (progressTrack) {
+      const pulse = data.worker_status === "active" && !data.completed && !data.failed;
+      progressTrack.classList.toggle("progress-track--pulse", pulse);
+    }
+  }
+
   function renderStatus(data) {
-    if (progressBar) progressBar.style.width = `${data.progress || 0}%`;
-    if (progressText) progressText.textContent = `${data.progress || 0}%`;
+    const progress = Number.isFinite(data.progress) ? data.progress : 0;
+    if (progressBar) progressBar.style.width = `${progress}%`;
+    if (progressText) progressText.textContent = `${progress}%`;
     if (stageBadge) {
-      stageBadge.textContent = data.stage;
+      stageBadge.textContent = data.stage_label || data.stage;
       stageBadge.className = `badge scan-badge scan-badge--${(data.stage || "").toLowerCase()}`;
     }
+
+    if (activityEl && data.activity) {
+      activityEl.textContent = data.activity;
+    }
+
+    updateHeartbeat(data);
 
     updateSteps(data.steps);
 

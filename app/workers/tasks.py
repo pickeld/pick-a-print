@@ -20,7 +20,11 @@ def run_scan(self, job_id: str) -> dict:
     if hasattr(storage, "download_prefix"):
         storage.download_prefix(job_id, ws.root)
 
-    job = process_scan(job_id, config)
+    def checkpoint(_job) -> None:
+        if hasattr(storage, "push_job_state"):
+            storage.push_job_state(job_id, ws.root)
+
+    job = process_scan(job_id, config, on_checkpoint=checkpoint)
 
     if hasattr(storage, "push_job_state"):
         storage.push_job_state(job_id, ws.root)
@@ -43,6 +47,12 @@ def run_stage(self, job_id: str, stage: str) -> dict:
         storage.download_prefix(job_id, ws.root)
 
     pipeline = ReconstructionPipeline(job_id, config)
+
+    def checkpoint(_job) -> None:
+        if hasattr(storage, "push_job_state"):
+            storage.push_job_state(job_id, ws.root)
+
+    pipeline._on_checkpoint = checkpoint
     job = pipeline.run(from_stage=JobStage(stage))
 
     if hasattr(storage, "push_job_state"):

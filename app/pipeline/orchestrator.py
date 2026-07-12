@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 from app.engines.blender import BlenderEngine
@@ -29,7 +30,12 @@ class StageError(Exception):
 class ReconstructionPipeline:
     """Runs photogrammetry stages in order with resume support."""
 
-    def __init__(self, job_id: str, config: PipelineConfig | None = None) -> None:
+    def __init__(
+        self,
+        job_id: str,
+        config: PipelineConfig | None = None,
+        on_checkpoint: Callable[[Job], None] | None = None,
+    ) -> None:
         self.config = config or PipelineConfig.from_env()
         self.job = Job.load(self.config.workspace_root, job_id)
         self.ws = JobWorkspace(self.config.workspace_root, job_id)
@@ -39,12 +45,18 @@ class ReconstructionPipeline:
         self.trimesh = TrimeshEngine()
         self.blender = BlenderEngine()
         self._used_cpu_sparse_fallback = False
+        self._on_checkpoint = on_checkpoint
+
+    def _persist(self) -> None:
+        self.job.save(self.config.workspace_root)
+        if self._on_checkpoint is not None:
+            self._on_checkpoint(self.job)
 
     def run(self, from_stage: JobStage | None = None) -> Job:
         self.ws.ensure_dirs()
         self.job.metadata["gpu_available"] = colmap_cuda_available()
         self.job.metadata["openmvs_available"] = openmvs_available()
-        self.job.save(self.config.workspace_root)
+        self._persist()
 
         start_idx = 0
         if from_stage is not None:
@@ -54,29 +66,30 @@ class ReconstructionPipeline:
         for stage in stages_to_run:
             if stage == JobStage.COMPLETED:
                 self.job.error = None
-                self.job.touch(JobStage.COMPLETED)
-                self.job.save(self.config.workspace_root)
+                self.job.touch(JobStage.COMPLETED, completed=True)
+                self._persist()
                 break
             if self.ws.is_stage_done(stage) and stage != JobStage.UPLOADED:
                 logger.info("Skipping completed stage %s for job %s", stage, self.job.id)
                 self.job.append_log("Skipped (already completed)", stage)
-                self.job.touch(stage)
-                self.job.save(self.config.workspace_root)
+                self.job.touch(stage, completed=True)
+                self._persist()
                 continue
             try:
                 logger.info("Running stage %s for job %s", stage, self.job.id)
+                self.job.touch(stage, completed=False)
                 self.job.append_log("Stage started", stage)
-                self.job.save(self.config.workspace_root)
+                self._persist()
                 self._run_stage(stage)
                 self.ws.mark_stage_done(stage)
                 self.job.append_log("Stage completed", stage)
-                self.job.touch(stage)
-                self.job.save(self.config.workspace_root)
+                self.job.touch(stage, completed=True)
+                self._persist()
             except Exception as exc:
                 logger.exception("Stage %s failed for job %s", stage, self.job.id)
                 self.job.append_log(f"Failed: {exc}", stage)
                 self.job.mark_failed(f"{stage}: {exc}")
-                self.job.save(self.config.workspace_root)
+                self._persist()
                 raise
 
         return self.job
@@ -111,7 +124,7 @@ class ReconstructionPipeline:
     def _stage_colmap_features(self) -> None:
         if not colmap_cuda_available():
             self.job.append_log("CUDA unavailable — using CPU SIFT extraction", JobStage.COLMAP_FEATURES)
-            self.job.save(self.config.workspace_root)
+            self._persist()
         result = self.colmap.extract_features(
             self.ws.frames_dir,
             self.ws.colmap_database(),
@@ -154,7 +167,7 @@ class ReconstructionPipeline:
         self._used_cpu_sparse_fallback = "CPU mode" in result.message
         if self._used_cpu_sparse_fallback:
             self.job.append_log(result.message, JobStage.DENSE_RECONSTRUCTION)
-            self.job.save(self.config.workspace_root)
+            self._persist()
             return
 
         if openmvs_available():
@@ -169,7 +182,7 @@ class ReconstructionPipeline:
                 "OpenMVS not installed — meshing will use COLMAP Poisson on dense/sparse cloud",
                 JobStage.DENSE_RECONSTRUCTION,
             )
-            self.job.save(self.config.workspace_root)
+            self._persist()
 
     def _stage_meshing(self) -> None:
         mesh_out = self.ws.mesh_dir / "mesh.ply"
@@ -183,7 +196,7 @@ class ReconstructionPipeline:
             if result.ok:
                 return
             self.job.append_log(f"OpenMVS meshing failed ({result.message}), trying COLMAP Poisson", JobStage.MESHING)
-            self.job.save(self.config.workspace_root)
+            self._persist()
 
         point_cloud = self._find_point_cloud()
         result = self.colmap.poisson_mesh(point_cloud, mesh_out)
@@ -192,14 +205,14 @@ class ReconstructionPipeline:
                 f"COLMAP Poisson failed ({result.message}), trying voxel mesh",
                 JobStage.MESHING,
             )
-            self.job.save(self.config.workspace_root)
+            self._persist()
             result = self.trimesh.mesh_from_pointcloud_voxel(point_cloud, mesh_out)
         if not result.ok:
             self.job.append_log(
                 f"Voxel mesh failed ({result.message}), trying convex hull",
                 JobStage.MESHING,
             )
-            self.job.save(self.config.workspace_root)
+            self._persist()
             result = self.trimesh.mesh_from_pointcloud(point_cloud, mesh_out)
         if not result.ok:
             raise StageError(result.message)
@@ -245,14 +258,14 @@ class ReconstructionPipeline:
                 f"Extracted {prepared.extracted_files} file(s) from {len(prepared.archives)} archive(s): {names}",
                 JobStage.PREPROCESSING,
             )
-            self.job.save(self.config.workspace_root)
+            self._persist()
 
         videos = prepared.videos
         images = prepared.images
 
         if videos:
             self.job.append_log(f"Using video: {videos[0].name}", JobStage.PREPROCESSING)
-            self.job.save(self.config.workspace_root)
+            self._persist()
             result = self.ffmpeg.extract_frames(
                 videos[0],
                 self.ws.frames_dir,
@@ -262,7 +275,7 @@ class ReconstructionPipeline:
                 raise StageError(result.message)
         elif images:
             self.job.append_log(f"Copying {len(images)} image(s) to frames/", JobStage.PREPROCESSING)
-            self.job.save(self.config.workspace_root)
+            self._persist()
             for index, img in enumerate(images):
                 suffix = img.suffix.lower() if img.suffix else ".jpg"
                 dest = self.ws.frames_dir / f"frame_{index:05d}{suffix}"
@@ -275,7 +288,7 @@ class ReconstructionPipeline:
         frame_count = count_frames(self.ws.frames_dir)
         self.job.metadata["frame_count"] = frame_count
         self.job.metadata["gpu_available"] = colmap_cuda_available()
-        self.job.save(self.config.workspace_root)
+        self._persist()
 
     def _find_point_cloud(self) -> Path:
         fused = self.ws.colmap_dense_dir() / "fused.ply"
@@ -338,7 +351,11 @@ class ReconstructionPipeline:
         self.ws.output_report().write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 
-def process_scan(job_id: str, config: PipelineConfig | None = None) -> Job:
+def process_scan(
+    job_id: str,
+    config: PipelineConfig | None = None,
+    on_checkpoint: Callable[[Job], None] | None = None,
+) -> Job:
     """High-level entry used by workers and CLI."""
-    pipeline = ReconstructionPipeline(job_id, config)
+    pipeline = ReconstructionPipeline(job_id, config, on_checkpoint=on_checkpoint)
     return pipeline.run()

@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.models.enums import JobStage, PIPELINE_STAGES
+from app.models.progress import progress_for_stage
 
 
 def _utcnow() -> str:
@@ -37,13 +38,11 @@ class Job:
         prev = self.stage_logs.get(label, "")
         self.stage_logs[label] = f"{prev}\n{message}".strip() if prev else message
 
-    def touch(self, stage: JobStage | None = None) -> None:
+    def touch(self, stage: JobStage | None = None, *, completed: bool = True, sub_progress: float = 0.0) -> None:
         self.updated_at = _utcnow()
         if stage is not None:
             self.stage = stage
-            total = len(PIPELINE_STAGES) - 1
-            idx = PIPELINE_STAGES.index(stage)
-            self.progress = round(idx / total * 100, 1)
+            self.progress = progress_for_stage(stage, completed=completed, sub_progress=sub_progress)
 
     def mark_failed(self, message: str) -> None:
         self.stage = JobStage.FAILED

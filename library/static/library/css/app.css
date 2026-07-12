@@ -1176,6 +1176,56 @@ img {
   transition: width 0.35s ease;
 }
 
+.progress-track--live .progress-fill {
+  position: relative;
+}
+
+.progress-track--live.progress-track--pulse .progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  animation: scan-progress-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes scan-progress-pulse {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.scan-activity {
+  margin: 0.65rem 0 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break: break-word;
+}
+
+.scan-heartbeat {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.scan-stage-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+}
+
+.scan-stall-warning {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  font-size: 0.85rem;
+}
+
 .scan-steps {
   list-style: none;
   margin: 0;
