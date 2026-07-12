@@ -10,7 +10,8 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIPELINE_DATA_DIR=/data/jobs
+    PIPELINE_DATA_DIR=/data/jobs \
+    QT_QPA_PLATFORM=offscreen
 
 WORKDIR /app
 

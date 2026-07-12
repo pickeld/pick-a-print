@@ -18,6 +18,7 @@ class TrimeshEngine:
                 import trimesh
 
                 mesh = trimesh.creation.box(extents=[1.0, 1.0, 1.0])
+                mesh.visual.face_colors = [255, 140, 40, 255]
                 mesh.export(str(output_ply))
             except ImportError:
                 output_ply.write_text(

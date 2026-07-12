@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass
 
 import requests
 
 CACHE_TTL_SECONDS = 3600
 _cache: dict[str, tuple[float, object]] = {}
+_fetch_lock = threading.Lock()
 
 # Docker images from docker-compose.yml and Dockerfiles.
 DOCKER_IMAGES = [
@@ -57,7 +60,7 @@ class ImageReleaseInfo:
     image: str
     tag: str
     latest: str | None
-    status: str  # up_to_date | update_available | floating | check_failed
+    status: str  # up_to_date | update_available | floating | check_failed | checking
     source: str
 
 
@@ -66,19 +69,21 @@ class ToolReleaseInfo:
     name: str
     installed: str | None
     latest: str | None
-    status: str  # up_to_date | update_available | not_installed | check_failed
+    status: str  # up_to_date | update_available | not_installed | check_failed | checking
     source: str
 
 
-def _cached(key: str, factory, *, refresh: bool = False):
-    now = time.time()
-    if not refresh and key in _cache:
-        ts, value = _cache[key]
-        if now - ts < CACHE_TTL_SECONDS:
-            return value
-    value = factory()
-    _cache[key] = (now, value)
+def _cache_get(key: str) -> object | None:
+    if key not in _cache:
+        return None
+    ts, value = _cache[key]
+    if time.time() - ts >= CACHE_TTL_SECONDS:
+        return None
     return value
+
+
+def _cache_set(key: str, value: object) -> None:
+    _cache[key] = (time.time(), value)
 
 
 def _version_tuple(version_str: str) -> tuple:
@@ -104,22 +109,17 @@ def _is_newer(latest: str, current: str) -> bool:
 
 def _fetch_docker_tags(image: str) -> list[str]:
     repo = image if "/" in image else f"library/{image}"
-    tags: list[str] = []
-    url = f"https://hub.docker.com/v2/repositories/{repo}/tags?page_size=100"
     try:
-        while url and len(tags) < 300:
-            response = requests.get(url, timeout=10, headers={"Accept": "application/json"})
-            if response.status_code != 200:
-                break
-            payload = response.json()
-            for row in payload.get("results", []):
-                tag_name = row.get("name")
-                if tag_name:
-                    tags.append(tag_name)
-            url = payload.get("next")
+        response = requests.get(
+            f"https://hub.docker.com/v2/repositories/{repo}/tags?page_size=100",
+            timeout=8,
+            headers={"Accept": "application/json"},
+        )
+        if response.status_code != 200:
+            return []
+        return [row["name"] for row in response.json().get("results", []) if row.get("name")]
     except requests.RequestException:
         return []
-    return tags
 
 
 def _best_matching_tag(tags: list[str], current_tag: str) -> str | None:
@@ -199,7 +199,7 @@ def _fetch_github_latest(repo: str) -> str | None:
     try:
         response = requests.get(
             f"https://api.github.com/repos/{repo}/releases/latest",
-            timeout=10,
+            timeout=8,
             headers=headers,
         )
         if response.status_code == 200:
@@ -210,8 +210,8 @@ def _fetch_github_latest(repo: str) -> str | None:
 
         response = requests.get(
             f"https://api.github.com/repos/{repo}/tags",
-            params={"per_page": 50},
-            timeout=10,
+            params={"per_page": 30},
+            timeout=8,
             headers=headers,
         )
         if response.status_code != 200:
@@ -236,7 +236,7 @@ def _fetch_ubuntu_package_version(package: str, suite: str = "jammy") -> str | N
     try:
         response = requests.get(
             f"https://packages.ubuntu.com/{suite}/{package}",
-            timeout=10,
+            timeout=8,
             headers={"User-Agent": "3d-collection-about-tab"},
         )
         if response.status_code != 200:
@@ -250,10 +250,9 @@ def _fetch_ubuntu_package_version(package: str, suite: str = "jammy") -> str | N
 
 
 def _upstream_version(version: str | None) -> str | None:
-    """Strip distro revision suffix, e.g. 3.7-2 -> 3.7, 7:5.1.2-3ubuntu1 -> 5.1.2."""
     if not version:
         return None
-    cleaned = version.split(":")[-1]  # epoch
+    cleaned = version.split(":")[-1]
     cleaned = re.split(r"[-~]", cleaned, maxsplit=1)[0]
     return cleaned
 
@@ -269,77 +268,119 @@ def _tool_status(installed: str | None, latest: str | None, *, in_image: bool) -
     return "up_to_date"
 
 
-def get_docker_images(refresh: bool = False) -> list[ImageReleaseInfo]:
-    def build():
-        tag_cache: dict[str, list[str]] = {}
-        results: list[ImageReleaseInfo] = []
-        for row in DOCKER_IMAGES:
-            image = row["image"]
-            if image not in tag_cache:
-                tag_cache[image] = _fetch_docker_tags(image)
-            latest = _best_matching_tag(tag_cache[image], row["tag"])
-            results.append(
-                ImageReleaseInfo(
-                    service=row["service"],
-                    image=image,
-                    tag=row["tag"],
-                    latest=latest,
-                    status=_docker_status(row["tag"], latest),
-                    source=row["source"],
-                )
+def _build_docker_images() -> list[ImageReleaseInfo]:
+    unique_images = {row["image"] for row in DOCKER_IMAGES}
+    tag_cache: dict[str, list[str]] = {}
+
+    with ThreadPoolExecutor(max_workers=len(unique_images)) as pool:
+        futures = {pool.submit(_fetch_docker_tags, image): image for image in unique_images}
+        for future in as_completed(futures):
+            tag_cache[futures[future]] = future.result()
+
+    results: list[ImageReleaseInfo] = []
+    for row in DOCKER_IMAGES:
+        latest = _best_matching_tag(tag_cache.get(row["image"], []), row["tag"])
+        results.append(
+            ImageReleaseInfo(
+                service=row["service"],
+                image=row["image"],
+                tag=row["tag"],
+                latest=latest,
+                status=_docker_status(row["tag"], latest),
+                source=row["source"],
             )
-        return results
-
-    return _cached("docker_images", build, refresh=refresh)
-
-
-def get_pipeline_tools(refresh: bool = False) -> list[ToolReleaseInfo]:
-    def build():
-        results: list[ToolReleaseInfo] = []
-        for tool in PIPELINE_TOOLS:
-            in_image = tool["ubuntu_package"] is not None
-            installed = (
-                _fetch_ubuntu_package_version(tool["ubuntu_package"])
-                if in_image
-                else None
-            )
-            latest = _fetch_github_latest(tool["github_repo"])
-            results.append(
-                ToolReleaseInfo(
-                    name=tool["name"],
-                    installed=installed,
-                    latest=latest,
-                    status=_tool_status(installed, latest, in_image=in_image),
-                    source=tool["source"],
-                )
-            )
-        return results
-
-    return _cached("pipeline_tools", build, refresh=refresh)
+        )
+    return results
 
 
-def get_cached_updates_available() -> bool:
-    for key in ("docker_images", "pipeline_tools"):
-        if key not in _cache:
-            continue
-        _, value = _cache[key]
-        if any(item.status == "update_available" for item in value):
-            return True
-    return False
+def _build_pipeline_tools() -> list[ToolReleaseInfo]:
+    results: list[ToolReleaseInfo] = []
+
+    def check_tool(tool: dict) -> ToolReleaseInfo:
+        in_image = tool["ubuntu_package"] is not None
+        installed = None
+        latest = None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = {}
+            if in_image:
+                futures[pool.submit(_fetch_ubuntu_package_version, tool["ubuntu_package"])] = "installed"
+            futures[pool.submit(_fetch_github_latest, tool["github_repo"])] = "latest"
+            for future in as_completed(futures):
+                if futures[future] == "installed":
+                    installed = future.result()
+                else:
+                    latest = future.result()
+
+        return ToolReleaseInfo(
+            name=tool["name"],
+            installed=installed,
+            latest=latest,
+            status=_tool_status(installed, latest, in_image=in_image),
+            source=tool["source"],
+        )
+
+    with ThreadPoolExecutor(max_workers=len(PIPELINE_TOOLS)) as pool:
+        futures = [pool.submit(check_tool, tool) for tool in PIPELINE_TOOLS]
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    results.sort(key=lambda item: item.name)
+    return results
 
 
-def get_about_context(refresh: bool = False) -> dict:
-    docker_images = get_docker_images(refresh=refresh)
-    pipeline_tools = get_pipeline_tools(refresh=refresh)
+def _build_about_payload() -> dict:
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        docker_future = pool.submit(_build_docker_images)
+        tools_future = pool.submit(_build_pipeline_tools)
+        docker_images = docker_future.result()
+        pipeline_tools = tools_future.result()
 
     updates_available = any(
         item.status == "update_available" for item in (*docker_images, *pipeline_tools)
     )
-
     return {
-        "docker_images": docker_images,
-        "pipeline_tools": pipeline_tools,
+        "docker_images": [asdict(item) for item in docker_images],
+        "pipeline_tools": [asdict(item) for item in pipeline_tools],
         "updates_available": updates_available,
         "checked_at": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime()),
         "cache_ttl_minutes": CACHE_TTL_SECONDS // 60,
+        "from_cache": False,
     }
+
+
+def fetch_about_data(*, refresh: bool = False) -> dict:
+    """Return release check results, using cache when valid."""
+    if not refresh:
+        cached = _cache_get("about_payload")
+        if cached is not None:
+            payload = dict(cached)
+            payload["from_cache"] = True
+            return payload
+
+    with _fetch_lock:
+        if not refresh:
+            cached = _cache_get("about_payload")
+            if cached is not None:
+                payload = dict(cached)
+                payload["from_cache"] = True
+                return payload
+
+        payload = _build_about_payload()
+        _cache_set("about_payload", payload)
+        return payload
+
+
+def peek_cached_about() -> dict | None:
+    """Return cached results without network I/O."""
+    cached = _cache_get("about_payload")
+    if cached is None:
+        return None
+    payload = dict(cached)
+    payload["from_cache"] = True
+    return payload
+
+
+def get_cached_updates_available() -> bool:
+    cached = peek_cached_about()
+    return bool(cached and cached.get("updates_available"))

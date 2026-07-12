@@ -13,6 +13,7 @@ from app.models.enums import JobStage, PIPELINE_STAGES
 from app.models.job import Job
 from app.pipeline.config import PipelineConfig
 from app.pipeline.workspace import JobWorkspace
+from app.pipeline.preview import count_frames, pipeline_mock_enabled
 from app.quality.image_checks import validate_images
 from app.quality.mesh_checks import validate_mesh
 from app.quality.reconstruction_checks import validate_sparse_model
@@ -219,6 +220,11 @@ class ReconstructionPipeline:
                 "Input must contain images, a video, or a .zip archive with photos/video inside"
             )
 
+        frame_count = count_frames(self.ws.frames_dir)
+        self.job.metadata["frame_count"] = frame_count
+        self.job.metadata["mock_mode"] = self.config.mock or pipeline_mock_enabled()
+        self.job.save(self.config.workspace_root)
+
     def _find_mesh_input(self) -> Path:
         for pattern in ("*.ply", "*.obj"):
             matches = sorted(self.ws.mesh_dir.glob(pattern))
@@ -229,11 +235,25 @@ class ReconstructionPipeline:
     def _write_report(self) -> None:
         import json
 
+        ply = self.ws.output_ply()
+        from app.pipeline.preview import build_preview_warnings, is_mock_placeholder_mesh
+
+        mock_mode = bool(self.job.metadata.get("mock_mode", self.config.mock))
+        frame_count = int(self.job.metadata.get("frame_count") or count_frames(self.ws.frames_dir))
+        placeholder = is_mock_placeholder_mesh(ply)
         report = {
             "job_id": self.job.id,
             "stage": self.job.stage.value,
+            "mock_mode": mock_mode,
+            "frame_count": frame_count,
+            "placeholder_mesh": placeholder,
+            "warnings": build_preview_warnings(
+                mock_mode=mock_mode,
+                frame_count=frame_count,
+                placeholder_mesh=placeholder,
+            ),
             "outputs": {
-                "ply": str(self.ws.output_ply()),
+                "ply": str(ply),
                 "obj": str(self.ws.output_obj()),
                 "glb": str(self.ws.output_glb()),
                 "stl": str(self.ws.output_stl()),

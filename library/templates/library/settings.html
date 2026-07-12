@@ -1,6 +1,11 @@
 {% extends "library/base.html" %}
+{% load static %}
 
 {% block title %}Settings — 3D Library{% endblock %}
+
+{% block head_extra %}
+<script src="{% static 'library/js/about.js' %}" defer></script>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -41,17 +46,21 @@
 </div>
 
 {% else %}
-<div class="about-panel">
+<div id="about-panel" class="about-panel" data-checks-url="{% url 'about_checks' %}">
   <div class="about-summary">
     <p class="about-hint" style="margin:0">Check whether Docker images or pipeline tools have newer releases before rebuilding.</p>
     <div class="about-actions">
-      {% if updates_available %}
-      <span class="badge badge-update">Rebuild recommended</span>
-      {% endif %}
-      <a href="?tab=about&amp;refresh=1" class="btn btn-ghost btn-sm">Refresh checks</a>
+      <span id="about-rebuild-badge" class="badge badge-update" {% if not about_cached or not about_cached.updates_available %}hidden{% endif %}>Rebuild recommended</span>
+      <button type="button" id="about-refresh-btn" class="btn btn-ghost btn-sm">Refresh checks</button>
     </div>
   </div>
-  <p class="about-meta">Last checked {{ checked_at }} · results cached for {{ cache_ttl_minutes }} min</p>
+  <p id="about-meta" class="about-meta">
+    {% if about_cached %}
+      Last checked {{ about_cached.checked_at }} (cached) · results cached for {{ cache_ttl_minutes }} min
+    {% else %}
+      Loading cached results or checking for updates…
+    {% endif %}
+  </p>
 
   <h3 class="about-section-title">Docker images</h3>
   <div class="table-wrap">
@@ -65,29 +74,28 @@
           <th>Status</th>
         </tr>
       </thead>
-      <tbody>
-        {% for img in docker_images %}
-        <tr>
-          <td>
-            <strong>{{ img.service }}</strong>
-            <div class="dep-source">{{ img.source }}</div>
-          </td>
-          <td><code>{{ img.image }}</code></td>
-          <td><code>{{ img.tag }}</code></td>
-          <td>{% if img.latest %}{{ img.latest }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-          <td>
-            {% if img.status == 'up_to_date' %}
-            <span class="badge badge-dep badge-dep-ok">Up to date</span>
-            {% elif img.status == 'update_available' %}
-            <span class="badge badge-dep badge-dep-warn">Update available</span>
-            {% elif img.status == 'floating' %}
-            <span class="badge badge-dep badge-dep-info">Floating tag</span>
-            {% elif img.status == 'check_failed' %}
-            <span class="badge badge-dep badge-dep-muted">Check failed</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
+      <tbody id="about-docker-body">
+        {% if about_cached %}
+          {% for img in about_cached.docker_images %}
+          <tr>
+            <td><strong>{{ img.service }}</strong><div class="dep-source">{{ img.source }}</div></td>
+            <td><code>{{ img.image }}</code></td>
+            <td><code>{{ img.tag }}</code></td>
+            <td>{% if img.latest %}{{ img.latest }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td><span class="badge badge-dep badge-dep-{% if img.status == 'update_available' %}warn{% elif img.status == 'floating' %}info{% elif img.status == 'up_to_date' %}ok{% else %}muted{% endif %}">{% if img.status == 'up_to_date' %}Up to date{% elif img.status == 'update_available' %}Update available{% elif img.status == 'floating' %}Floating tag{% else %}Check failed{% endif %}</span></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          {% for img in docker_manifest %}
+          <tr>
+            <td><strong>{{ img.service }}</strong><div class="dep-source">{{ img.source }}</div></td>
+            <td><code>{{ img.image }}</code></td>
+            <td><code>{{ img.tag }}</code></td>
+            <td><span class="text-muted">…</span></td>
+            <td><span class="badge badge-dep badge-dep-muted">Checking…</span></td>
+          </tr>
+          {% endfor %}
+        {% endif %}
       </tbody>
     </table>
   </div>
@@ -104,28 +112,26 @@
           <th>Status</th>
         </tr>
       </thead>
-      <tbody>
-        {% for tool in pipeline_tools %}
-        <tr>
-          <td>
-            <strong>{{ tool.name }}</strong>
-            <div class="dep-source">{{ tool.source }}</div>
-          </td>
-          <td>{% if tool.installed %}{{ tool.installed }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-          <td>{% if tool.latest %}{{ tool.latest }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-          <td>
-            {% if tool.status == 'up_to_date' %}
-            <span class="badge badge-dep badge-dep-ok">Up to date</span>
-            {% elif tool.status == 'update_available' %}
-            <span class="badge badge-dep badge-dep-warn">Update available</span>
-            {% elif tool.status == 'not_installed' %}
-            <span class="badge badge-dep badge-dep-muted">Not in base image</span>
-            {% elif tool.status == 'check_failed' %}
-            <span class="badge badge-dep badge-dep-muted">Check failed</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
+      <tbody id="about-tools-body">
+        {% if about_cached %}
+          {% for tool in about_cached.pipeline_tools %}
+          <tr>
+            <td><strong>{{ tool.name }}</strong><div class="dep-source">{{ tool.source }}</div></td>
+            <td>{% if tool.installed %}{{ tool.installed }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if tool.latest %}{{ tool.latest }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td><span class="badge badge-dep badge-dep-{% if tool.status == 'update_available' %}warn{% elif tool.status == 'up_to_date' %}ok{% else %}muted{% endif %}">{% if tool.status == 'up_to_date' %}Up to date{% elif tool.status == 'update_available' %}Update available{% elif tool.status == 'not_installed' %}Not in base image{% else %}Check failed{% endif %}</span></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          {% for tool in tools_manifest %}
+          <tr>
+            <td><strong>{{ tool.name }}</strong><div class="dep-source">{{ tool.source }}</div></td>
+            <td><span class="text-muted">…</span></td>
+            <td><span class="text-muted">…</span></td>
+            <td><span class="badge badge-dep badge-dep-muted">Checking…</span></td>
+          </tr>
+          {% endfor %}
+        {% endif %}
       </tbody>
     </table>
   </div>

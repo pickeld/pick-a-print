@@ -161,17 +161,27 @@ def settings_view(request):
         "active_tab": active_tab,
     }
 
-    from library.dependency_info import get_about_context, get_cached_updates_available
+    from library.dependency_info import CACHE_TTL_SECONDS, get_cached_updates_available, peek_cached_about
 
     context["updates_available"] = get_cached_updates_available()
 
     if active_tab == "about":
-        refresh = request.GET.get("refresh") == "1"
-        about = get_about_context(refresh=refresh)
-        context.update(about)
-        context["updates_available"] = about["updates_available"]
+        from library.dependency_info import DOCKER_IMAGES, PIPELINE_TOOLS
+
+        context["about_cached"] = peek_cached_about()
+        context["cache_ttl_minutes"] = CACHE_TTL_SECONDS // 60
+        context["docker_manifest"] = DOCKER_IMAGES
+        context["tools_manifest"] = PIPELINE_TOOLS
 
     return render(request, "library/settings.html", context)
+
+
+@login_required
+def about_checks_view(request):
+    from library.dependency_info import fetch_about_data
+
+    refresh = request.GET.get("refresh") == "1"
+    return JsonResponse(fetch_about_data(refresh=refresh))
 
 
 @login_required

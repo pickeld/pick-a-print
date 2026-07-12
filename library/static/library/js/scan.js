@@ -16,6 +16,7 @@
   const importBtn = document.getElementById("scan-import-btn");
   const importNote = document.getElementById("scan-import-note");
   const viewerSection = document.getElementById("scan-viewer-section");
+  const previewWarning = document.getElementById("scan-preview-warning");
   const modelViewer = document.getElementById("scan-model-viewer");
   const viewerLoading = document.getElementById("scan-viewer-loading");
   const viewerError = document.getElementById("scan-viewer-error");
@@ -76,6 +77,18 @@
     viewerSection.classList.remove("hidden");
   }
 
+  function updatePreviewWarnings(preview) {
+    if (!previewWarning) return;
+    const warnings = preview?.warnings || [];
+    if (!warnings.length) {
+      previewWarning.classList.add("hidden");
+      previewWarning.innerHTML = "";
+      return;
+    }
+    previewWarning.classList.remove("hidden");
+    previewWarning.innerHTML = warnings.map((w) => `<p>${w}</p>`).join("");
+  }
+
   function updateOutputs(data) {
     if (!outputsEl || !outputLinks) return;
     if (!data.completed || !data.outputs || Object.keys(data.outputs).length === 0) {
@@ -96,6 +109,7 @@
     if (data.viewer_file) {
       updateViewer(data.viewer_file);
     }
+    updatePreviewWarnings(data.preview);
 
     if (data.saved_model_id) {
       importBtn.disabled = true;
@@ -157,6 +171,15 @@
   }
 
   bindViewerEvents();
+
+  const initialPreviewEl = document.getElementById("scan-initial-preview");
+  if (initialPreviewEl) {
+    try {
+      updatePreviewWarnings(JSON.parse(initialPreviewEl.textContent));
+    } catch (err) {
+      console.warn("Could not parse initial preview status", err);
+    }
+  }
 
   if (polling) {
     poll();

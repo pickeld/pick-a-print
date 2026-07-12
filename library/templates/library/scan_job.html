@@ -24,7 +24,13 @@
   data-import-url="{% url 'scan_import' job_id=scan_job.job_id %}"
   data-download-base="{% url 'scan_download' job_id=scan_job.job_id filename='__FILE__' %}"
 >
+  {{ status.preview|json_script:"scan-initial-preview" }}
   <section class="scan-viewer-card{% if not status.viewer_file %} hidden{% endif %}" id="scan-viewer-section">
+    <div class="scan-preview-warning{% if not status.preview.warnings %} hidden{% endif %}" id="scan-preview-warning">
+      {% for warning in status.preview.warnings|default_if_none:"" %}
+        <p>{{ warning }}</p>
+      {% endfor %}
+    </div>
     <div class="scan-viewer-header">
       <h3>3D Preview</h3>
       <span class="text-muted scan-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>

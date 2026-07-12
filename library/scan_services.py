@@ -12,6 +12,12 @@ from app.models.enums import JobStage, PIPELINE_STAGES
 from app.pipeline.input_extract import ARCHIVE_EXTENSIONS, MEDIA_EXTENSIONS
 from app.models.job import Job as PipelineJob
 from app.pipeline.glb_export import ensure_glb_from_ply, is_valid_glb
+from app.pipeline.preview import (
+    build_preview_warnings,
+    count_frames,
+    is_mock_placeholder_mesh,
+    pipeline_mock_enabled,
+)
 from app.pipeline.stages import STAGE_DESCRIPTIONS
 from app.pipeline.workspace import JobWorkspace
 from app.storage.local import LocalStorage
@@ -206,6 +212,51 @@ def get_scan_outputs(scan_job: ScanJob) -> dict[str, Path]:
     return outputs
 
 
+def _load_report(ws: JobWorkspace) -> dict:
+    report_path = ws.output_report()
+    if not report_path.exists():
+        return {}
+    try:
+        import json
+
+        return json.loads(report_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _preview_status(scan_job: ScanJob, output_paths: dict[str, Path]) -> dict:
+    ws = JobWorkspace(workspace_root(), str(scan_job.job_id))
+    report = _load_report(ws)
+    pipeline_job = load_pipeline_job(str(scan_job.job_id))
+    frame_count = int(
+        report.get("frame_count")
+        or pipeline_job.metadata.get("frame_count")
+        or count_frames(ws.frames_dir)
+    )
+    mock_mode = bool(
+        report.get("mock_mode", pipeline_job.metadata.get("mock_mode", pipeline_mock_enabled()))
+    )
+    ply = output_paths.get("ply")
+    placeholder = bool(report.get("placeholder_mesh")) or (
+        bool(ply) and is_mock_placeholder_mesh(ply)
+    )
+    if placeholder:
+        mock_mode = True
+    warnings = report.get("warnings")
+    if not warnings:
+        warnings = build_preview_warnings(
+            mock_mode=mock_mode,
+            frame_count=frame_count,
+            placeholder_mesh=placeholder,
+        )
+    return {
+        "mock_mode": mock_mode,
+        "frame_count": frame_count,
+        "placeholder_mesh": placeholder,
+        "warnings": warnings,
+    }
+
+
 def build_status_payload(scan_job: ScanJob) -> dict:
     scan_job = sync_scan_job(scan_job)
     pipeline_job = load_pipeline_job(str(scan_job.job_id))
@@ -219,12 +270,19 @@ def build_status_payload(scan_job: ScanJob) -> dict:
 
     outputs = {}
     viewer_url = None
+    preview = {
+        "mock_mode": pipeline_mock_enabled(),
+        "frame_count": count_frames(JobWorkspace(workspace_root(), str(scan_job.job_id)).frames_dir),
+        "placeholder_mesh": False,
+        "warnings": [],
+    }
     if scan_job.is_completed:
         output_paths = get_scan_outputs(scan_job)
         for key, path in output_paths.items():
             outputs[key] = path.name
         if "glb" in outputs:
             viewer_url = outputs["glb"]
+        preview = _preview_status(scan_job, output_paths)
 
     return {
         "job_id": str(scan_job.job_id),
@@ -240,6 +298,7 @@ def build_status_payload(scan_job: ScanJob) -> dict:
         "outputs": outputs,
         "viewer_file": viewer_url,
         "saved_model_id": scan_job.saved_model_id,
+        "preview": preview,
     }
 
 
