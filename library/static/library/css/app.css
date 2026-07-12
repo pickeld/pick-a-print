@@ -1219,4 +1219,88 @@ img {
   .scan-job-layout {
     grid-template-columns: 1fr;
   }
+
+  .scan-viewer-wrap model-viewer {
+    min-height: 320px;
+  }
+
+  .scan-viewer-hint {
+    display: none;
+  }
+}
+
+/* --- 3D model viewer --- */
+
+.scan-viewer-card {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.scan-viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.scan-viewer-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scan-viewer-hint {
+  font-size: 0.8rem;
+}
+
+.scan-viewer-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: radial-gradient(ellipse at center, #1f2937 0%, #0f1115 70%);
+  min-height: 480px;
+}
+
+.scan-viewer-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.scan-viewer-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  color: #fecaca;
+  background: rgba(15, 17, 21, 0.92);
+  z-index: 2;
+  font-size: 0.9rem;
+}
+
+.scan-viewer-wrap model-viewer {
+  display: block;
+  width: 100%;
+  min-height: 480px;
+  --poster-color: transparent;
+  --progress-bar-color: var(--accent);
+}
+
+.scan-viewer-wrap model-viewer.hidden {
+  visibility: hidden;
+  height: 0;
+  min-height: 0;
 }

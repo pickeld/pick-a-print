@@ -204,9 +204,13 @@ def build_status_payload(scan_job: ScanJob) -> dict:
         step["state"] = step_state(step["key"], scan_job.stage, failed, failed_stage)
 
     outputs = {}
+    viewer_url = None
     if scan_job.is_completed:
-        for key, path in get_scan_outputs(scan_job).items():
+        output_paths = get_scan_outputs(scan_job)
+        for key, path in output_paths.items():
             outputs[key] = path.name
+        if "glb" in outputs:
+            viewer_url = outputs["glb"]
 
     return {
         "job_id": str(scan_job.job_id),
@@ -220,6 +224,7 @@ def build_status_payload(scan_job: ScanJob) -> dict:
         "completed": scan_job.is_completed,
         "failed": failed,
         "outputs": outputs,
+        "viewer_file": viewer_url,
         "saved_model_id": scan_job.saved_model_id,
     }
 

@@ -15,11 +15,16 @@
   const outputLinks = document.getElementById("scan-output-links");
   const importBtn = document.getElementById("scan-import-btn");
   const importNote = document.getElementById("scan-import-note");
+  const viewerSection = document.getElementById("scan-viewer-section");
+  const modelViewer = document.getElementById("scan-model-viewer");
+  const viewerLoading = document.getElementById("scan-viewer-loading");
+  const viewerError = document.getElementById("scan-viewer-error");
 
-  let polling = true;
+  let polling = !document.getElementById("scan-stage-badge")?.textContent?.match(/COMPLETED|FAILED/);
 
-  function downloadUrl(filename) {
-    return downloadBase.replace("__FILE__", encodeURIComponent(filename));
+  function downloadUrl(filename, inline) {
+    const url = downloadBase.replace("__FILE__", encodeURIComponent(filename));
+    return inline ? `${url}?inline=1` : url;
   }
 
   function updateSteps(steps) {
@@ -29,6 +34,46 @@
       if (!li) return;
       li.className = `scan-step scan-step--${step.state}`;
     });
+  }
+
+  function hideViewerLoading() {
+    if (viewerLoading) viewerLoading.classList.add("hidden");
+  }
+
+  function showViewerError(message) {
+    hideViewerLoading();
+    if (viewerError) {
+      viewerError.textContent = message;
+      viewerError.classList.remove("hidden");
+    }
+    if (modelViewer) modelViewer.classList.add("hidden");
+  }
+
+  function bindViewerEvents() {
+    if (!modelViewer) return;
+    modelViewer.addEventListener("load", () => {
+      hideViewerLoading();
+      if (viewerError) viewerError.classList.add("hidden");
+      modelViewer.classList.remove("hidden");
+    });
+    modelViewer.addEventListener("error", () => {
+      showViewerError("Could not load the 3D preview. The GLB file may be invalid — try re-running the scan.");
+    });
+    if (modelViewer.loaded) {
+      hideViewerLoading();
+    }
+  }
+
+  function updateViewer(viewerFile) {
+    if (!viewerSection || !modelViewer || !viewerFile) return;
+    const src = downloadUrl(viewerFile, true);
+    if (modelViewer.getAttribute("src") !== src) {
+      if (viewerLoading) viewerLoading.classList.remove("hidden");
+      if (viewerError) viewerError.classList.add("hidden");
+      modelViewer.classList.remove("hidden");
+      modelViewer.setAttribute("src", src);
+    }
+    viewerSection.classList.remove("hidden");
   }
 
   function updateOutputs(data) {
@@ -42,11 +87,15 @@
     outputLinks.innerHTML = "";
     Object.entries(data.outputs).forEach(([key, filename]) => {
       const a = document.createElement("a");
-      a.href = downloadUrl(filename);
+      a.href = downloadUrl(filename, false);
       a.className = "btn btn-secondary btn-sm";
       a.textContent = `Download ${key.toUpperCase()}`;
       outputLinks.appendChild(a);
     });
+
+    if (data.viewer_file) {
+      updateViewer(data.viewer_file);
+    }
 
     if (data.saved_model_id) {
       importBtn.disabled = true;
@@ -107,5 +156,14 @@
     }
   }
 
-  poll();
+  bindViewerEvents();
+
+  if (polling) {
+    poll();
+  } else if (modelViewer?.getAttribute("src")) {
+    // Already completed — model-viewer may have loaded before listeners attached
+    window.customElements?.whenDefined("model-viewer").then(() => {
+      if (modelViewer.loaded) hideViewerLoading();
+    });
+  }
 })();

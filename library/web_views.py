@@ -17,7 +17,9 @@ from library.scan_services import (
     get_scan_outputs,
     import_scan_to_library,
     sync_scan_job,
+    workspace_root,
 )
+from app.pipeline.workspace import JobWorkspace
 from library.services import ModelSaveError, save_model_from_upload, save_model_from_url
 
 
@@ -308,6 +310,14 @@ def scan_download_view(request, job_id, filename):
         messages.error(request, "File not found.")
         return redirect("scan_job", job_id=scan_job.job_id)
 
+    try:
+        path.resolve().relative_to(
+            JobWorkspace(workspace_root(), str(scan_job.job_id)).output_dir.resolve()
+        )
+    except ValueError as exc:
+        messages.error(request, "Invalid file.")
+        return redirect("scan_job", job_id=scan_job.job_id)
+
     media_types = {
         ".stl": "model/stl",
         ".glb": "model/gltf-binary",
@@ -315,4 +325,13 @@ def scan_download_view(request, job_id, filename):
         ".obj": "text/plain",
         ".json": "application/json",
     }
-    return FileResponse(path.open("rb"), as_attachment=True, filename=path.name, content_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+    inline = request.GET.get("inline") == "1"
+    response = FileResponse(
+        path.open("rb"),
+        as_attachment=not inline,
+        filename=path.name,
+        content_type=media_types.get(path.suffix.lower(), "application/octet-stream"),
+    )
+    if inline:
+        response["Cache-Control"] = "private, max-age=3600"
+    return response
