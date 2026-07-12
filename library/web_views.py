@@ -183,7 +183,7 @@ def model_save_view(request):
                     messages.success(request, f'"{model.title}" uploaded to your library.')
                     return redirect("model_detail", pk=model.pk)
             elif upload_form.errors.get("file"):
-                messages.error(request, "Choose an STL file before uploading.")
+                messages.error(request, "Choose a model file (.stl or .3mf) before uploading.")
 
     return render(
         request,

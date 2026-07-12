@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}Pick-a-Print{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +12,10 @@
   <link rel="stylesheet" href="{% static 'library/css/app.css' %}">
   {% block head_extra %}{% endblock %}
 </head>
-<body>
+<body
+  data-scan-upload-url="{% url 'scan_list' %}"
+  data-model-upload-url="{% url 'model_save' %}"
+>
   <div class="app-shell">
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
@@ -97,6 +101,16 @@
       </main>
     </div>
   </div>
+
+  <div id="file-drop-overlay" class="file-drop-overlay" hidden>
+    <div class="file-drop-panel">
+      <div class="file-drop-icon">⬇</div>
+      <p class="file-drop-status">Drop files to upload</p>
+      <p class="file-drop-hint">photos, video, zip → scan · stl, 3mf → library</p>
+    </div>
+  </div>
+
   <script src="{% static 'library/js/app.js' %}"></script>
+  <script src="{% static 'library/js/file_drop.js' %}"></script>
 </body>
 </html>

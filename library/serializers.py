@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from rest_framework import serializers
 
 from library.models import Collection, ModelFile, ModelStatus, SavedModel, Tag
@@ -176,9 +178,12 @@ class UploadModelSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=ModelStatus.choices, required=False)
 
     def validate_file(self, value):
-        name = (value.name or "").lower()
-        if not name.endswith(".stl"):
-            raise serializers.ValidationError("Only .stl files are supported")
+        from library.downloads import MODEL_UPLOAD_EXTENSIONS
+
+        ext = Path((value.name or "").lower()).suffix
+        if ext not in MODEL_UPLOAD_EXTENSIONS:
+            allowed = ", ".join(sorted(e.lstrip(".") for e in MODEL_UPLOAD_EXTENSIONS))
+            raise serializers.ValidationError(f"Only {allowed} files are supported")
         return value
 
     def save(self, **kwargs):

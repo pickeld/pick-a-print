@@ -10,12 +10,12 @@
 {% block content %}
 <div class="page-header">
   <h2>Save to Library</h2>
-  <p>Paste a link or upload an STL file</p>
+  <p>Paste a link or upload a model file (.stl, .3mf)</p>
 </div>
 
 <div class="tabs">
   <a href="?tab=url" class="tab {% if active_tab == 'url' %}active{% endif %}">From URL</a>
-  <a href="?tab=upload" class="tab {% if active_tab == 'upload' %}active{% endif %}">Upload STL</a>
+  <a href="?tab=upload" class="tab {% if active_tab == 'upload' %}active{% endif %}">Upload File</a>
 </div>
 
 {% if active_tab == 'upload' %}
@@ -27,7 +27,7 @@
     <div class="form-group">
       <label for="{{ upload_form.file.id_for_label }}">{{ upload_form.file.label }}</label>
       {{ upload_form.file }}
-      <div class="helptext">Only .stl files are supported (max {{ max_upload_size_mb }} MB).</div>
+      <div class="helptext">Supported: .stl, .3mf (max {{ max_upload_size_mb }} MB). Or drag and drop anywhere in the app.</div>
       {% if upload_form.file.errors %}
         <ul class="errorlist">{% for e in upload_form.file.errors %}<li>{{ e }}</li>{% endfor %}</ul>
       {% endif %}

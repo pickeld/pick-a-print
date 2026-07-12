@@ -1480,3 +1480,61 @@ img {
   height: 0;
   min-height: 0;
 }
+
+/* Global file drop overlay */
+
+.file-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(11, 13, 16, 0.72);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.file-drop-overlay--active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.file-drop-overlay--uploading {
+  pointer-events: auto;
+}
+
+.file-drop-overlay--error .file-drop-panel {
+  border-color: rgba(239, 68, 68, 0.55);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2), var(--shadow);
+}
+
+.file-drop-panel {
+  width: min(420px, 100%);
+  padding: 2rem 1.75rem;
+  border: 2px dashed rgba(245, 158, 11, 0.55);
+  border-radius: calc(var(--radius) + 4px);
+  background: rgba(24, 28, 36, 0.96);
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.file-drop-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.9;
+}
+
+.file-drop-status {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.file-drop-hint {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}

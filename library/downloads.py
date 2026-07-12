@@ -9,6 +9,7 @@ import requests
 from django.conf import settings
 
 SUPPORTED_DOWNLOAD_EXTENSIONS = {".stl", ".3mf"}
+MODEL_UPLOAD_EXTENSIONS = SUPPORTED_DOWNLOAD_EXTENSIONS
 
 
 class DownloadError(Exception):

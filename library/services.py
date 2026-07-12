@@ -118,10 +118,14 @@ def save_model_from_upload(
     tag_names: list[str] | None = None,
     status: str | None = None,
 ) -> SavedModel:
+    from library.downloads import MODEL_UPLOAD_EXTENSIONS
+
     original_name = uploaded_file.name or "model.stl"
-    ext = Path(original_name).suffix.lower().lstrip(".")
-    if ext not in ("stl",):
-        raise ModelSaveError("Only STL files are supported for now")
+    ext = Path(original_name).suffix.lower()
+    if ext not in MODEL_UPLOAD_EXTENSIONS:
+        allowed = ", ".join(sorted(e.lstrip(".") for e in MODEL_UPLOAD_EXTENSIONS))
+        raise ModelSaveError(f"Only {allowed} files are supported for upload")
+    ext = ext.lstrip(".")
 
     upload_id = uuid.uuid4()
     model = SavedModel.objects.create(
