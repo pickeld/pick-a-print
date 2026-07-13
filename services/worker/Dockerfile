@@ -1,4 +1,4 @@
-# Photogrammetry worker — COLMAP, FFmpeg, Blender, OpenMVS, Python tools.
+# Photogrammetry worker — COLMAP, Blender, OpenMVS, Python tools.
 # Ubuntu 24.04 ships much newer apt packages than 22.04; OpenMVS comes from upstream binaries.
 #
 # Build: docker compose build worker
@@ -24,7 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     ca-certificates \
     colmap \
-    ffmpeg \
     blender \
     libgl1 \
     libglib2.0-0 \
