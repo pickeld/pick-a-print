@@ -18,7 +18,6 @@
     id="collections-bulk-form"
     class="bulk-actions-bar"
     data-collection-bulk-form
-    hidden
   >
     {% csrf_token %}
     <span class="bulk-selection-count" data-collection-selection-count hidden>
@@ -48,7 +47,7 @@
           {% endif %}
           {% for col in collections %}
             <div class="collection-card-wrap" data-collection-item>
-              <label class="collection-card-check" aria-label="Select {{ col.name }}">
+              <label class="collection-card-check" hidden aria-label="Select {{ col.name }}">
                 <input type="checkbox" name="collection_ids" value="{{ col.pk }}" form="collections-bulk-form">
               </label>
               <a href="{% url 'collection_detail' slug=col.slug %}" class="collection-card collection-card--selectable" data-collection-link>

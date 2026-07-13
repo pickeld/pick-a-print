@@ -16,6 +16,8 @@ function initCollectionManage(root) {
   const pencilIcon = editBtn.querySelector(".icon-pencil");
   const doneIcon = editBtn.querySelector(".icon-done");
   const checkboxes = () => Array.from(root.querySelectorAll('input[name="collection_ids"]'));
+  const checkLabels = () =>
+    Array.from(root.querySelectorAll(".nav-collection-check, .collection-card-check"));
 
   const clearSelection = () => {
     checkboxes().forEach((box) => {
@@ -59,7 +61,9 @@ function initCollectionManage(root) {
     if (pencilIcon) pencilIcon.hidden = enabled;
     if (doneIcon) doneIcon.hidden = !enabled;
 
-    if (bulkForm) bulkForm.hidden = !enabled;
+    checkLabels().forEach((label) => {
+      label.hidden = !enabled;
+    });
 
     if (!enabled) {
       clearSelection();
@@ -101,6 +105,12 @@ function initCollectionManage(root) {
   });
 
   root.addEventListener("click", (event) => {
+    const checkLabel = event.target.closest(".nav-collection-check, .collection-card-check");
+    if (checkLabel && !root.classList.contains("is-editing")) {
+      event.preventDefault();
+      return;
+    }
+
     if (!root.classList.contains("is-editing")) return;
 
     const link = event.target.closest("[data-collection-link]");
@@ -115,15 +125,30 @@ function initCollectionManage(root) {
     }
   });
 
-  bulkForm?.addEventListener("submit", (event) => {
+  deleteBtn?.addEventListener("click", (event) => {
+    if (!root.classList.contains("is-editing")) {
+      event.preventDefault();
+      return;
+    }
+
     const count = checkboxes().filter((box) => box.checked).length;
     if (count === 0) {
       event.preventDefault();
       return;
     }
 
-    const message = deleteBtn?.dataset.confirm || "Delete selected collections? Models will be kept.";
+    const label = count === 1 ? "collection" : "collections";
+    const message =
+      deleteBtn.dataset.confirm ||
+      `Delete ${count} selected ${label}? Models will be kept in your library.`;
     if (!window.confirm(message)) {
+      event.preventDefault();
+    }
+  });
+
+  bulkForm?.addEventListener("submit", (event) => {
+    const count = checkboxes().filter((box) => box.checked).length;
+    if (count === 0) {
       event.preventDefault();
     }
   });
