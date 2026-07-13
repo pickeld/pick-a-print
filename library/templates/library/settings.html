@@ -29,9 +29,17 @@
 </div>
 
 {% if active_tab == 'downloads' %}
-<div class="form-card" style="max-width:720px">
-  <p class="text-muted" style="margin-top:0">When you save a model link, Pick-a-Print tries to download STL/3MF files automatically.</p>
-  <div class="table-wrap">
+<div
+  id="download-integrations-panel"
+  class="form-card"
+  style="max-width:720px"
+  data-save-url="{% url 'download_integrations_save' %}"
+>
+  <p class="text-muted" style="margin-top:0">When you save a model link, Pick-a-Print tries to download STL/3MF files automatically. Sites that need credentials can be configured below.</p>
+
+  {% csrf_token %}
+
+  <div class="table-wrap" style="margin-bottom:1.25rem">
     <table class="dep-table">
       <thead>
         <tr>
@@ -40,7 +48,7 @@
           <th>Setup</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="download-integrations-status">
         {% for row in download_integrations %}
         <tr>
           <td>{{ row.site }}</td>
@@ -56,7 +64,55 @@
       </tbody>
     </table>
   </div>
-  <p class="helptext" style="margin-bottom:0">Add tokens to <code>docker-compose.yml</code> (web + library-worker) or your <code>.env</code>, then rebuild.</p>
+
+  <h3 style="font-size:1rem;margin:0 0 0.75rem">Provider credentials</h3>
+
+  <div class="form-group">
+    <label for="bambu-lab-token">MakerWorld (Bambu Lab token)</label>
+    <input
+      type="password"
+      id="bambu-lab-token"
+      name="bambu_lab_token"
+      value=""
+      placeholder="{% if download_config.bambu_lab_token %}•••••••• (saved){% else %}Cookie named token from makerworld.com{% endif %}"
+      autocomplete="new-password"
+    >
+    <div class="helptext">Log in to MakerWorld, copy the <code>token</code> cookie value. Leave blank to keep the saved token.</div>
+  </div>
+
+  <div class="form-group">
+    <label for="thingiverse-api-token">Thingiverse API token</label>
+    <input
+      type="password"
+      id="thingiverse-api-token"
+      name="thingiverse_api_token"
+      value=""
+      placeholder="{% if download_config.thingiverse_api_token %}•••••••• (saved){% else %}From thingiverse.com/apps{% endif %}"
+      autocomplete="new-password"
+    >
+    <div class="helptext">Create an app at thingiverse.com/apps. Leave blank to keep the saved token.</div>
+  </div>
+
+  <div class="form-group">
+    <label for="myminifactory-api-key">MyMiniFactory API key</label>
+    <input
+      type="password"
+      id="myminifactory-api-key"
+      name="myminifactory_api_key"
+      value=""
+      placeholder="{% if download_config.myminifactory_api_key %}•••••••• (saved){% else %}From myminifactory.com API settings{% endif %}"
+      autocomplete="new-password"
+    >
+    <div class="helptext">Request an API key from myminifactory.com. Leave blank to keep the saved key.</div>
+  </div>
+
+  <div id="download-integrations-message" class="text-muted" aria-live="polite"></div>
+
+  <div class="about-actions" style="margin-top:1rem">
+    <button type="button" class="btn btn-primary btn-sm" id="download-integrations-save-btn">Save credentials</button>
+  </div>
+
+  <p class="helptext" style="margin-top:1rem;margin-bottom:0">Environment variables (<code>BAMBU_LAB_TOKEN</code>, <code>THINGIVERSE_API_TOKEN</code>, <code>MYMINIFACTORY_API_KEY</code>) still work as a fallback if no value is saved here.</p>
 </div>
 
 {% elif active_tab == 'scan' %}

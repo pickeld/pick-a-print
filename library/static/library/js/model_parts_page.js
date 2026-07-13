@@ -13,54 +13,49 @@ document.addEventListener("DOMContentLoaded", () => {
   const pencilIcon = editBtn?.querySelector(".icon-pencil");
   const doneIcon = editBtn?.querySelector(".icon-done");
 
-  const modal = document.getElementById("part-preview-modal");
-  const modalViewer = document.getElementById("part-preview-modal-viewer");
-  const modalLoading = document.getElementById("part-preview-modal-loading");
-  const modalError = document.getElementById("part-preview-modal-error");
-  const modalTitle = document.getElementById("part-preview-modal-title");
-  const modalClose = document.getElementById("part-preview-modal-close");
+  const mainSection = document.getElementById("part-main-viewer");
+  const mainViewer = document.getElementById("part-main-viewer-canvas");
+  const mainLoading = document.getElementById("part-main-viewer-loading");
+  const mainError = document.getElementById("part-main-viewer-error");
+  const mainTitle = document.getElementById("part-main-viewer-title");
 
   const checkboxes = () => Array.from(grid.querySelectorAll('input[name="file_ids"]'));
 
-  function bindCardViewer(viewer) {
-    const wrap = viewer.closest(".part-card-preview");
-    const loading = wrap?.querySelector(".part-card-loading");
-    const errorEl = wrap?.querySelector(".part-card-error");
-    if (!loading) return;
+  let activeFileId = mainSection?.dataset.activeFileId || null;
 
-    const bar = loading.querySelector(".viewer-load-bar");
-
-    function hideLoading() {
-      loading.classList.add("hidden");
-    }
-
-    function showError() {
-      hideLoading();
-      errorEl?.classList.remove("hidden");
-      viewer.classList.add("hidden");
-    }
-
-    viewer.addEventListener("progress", (event) => {
-      const progress = event.detail?.totalProgress ?? 0;
-      if (bar) bar.style.width = `${Math.min(100, Math.round(progress * 100))}%`;
-    });
-
-    viewer.addEventListener("load", hideLoading);
-    viewer.addEventListener("error", showError);
-
-    window.customElements?.whenDefined("model-viewer").then(() => {
-      if (viewer.loaded) hideLoading();
-    });
-  }
-
-  grid.querySelectorAll(".part-card-preview model-viewer").forEach(bindCardViewer);
-
-  const modalViewerUi =
-    modalViewer && modalLoading
-      ? window.PickAPrintViewer?.bind(modalViewer, modalLoading, modalError, {
+  const mainViewerUi =
+    mainViewer && mainLoading
+      ? window.PickAPrintViewer?.bind(mainViewer, mainLoading, mainError, {
           errorMessage: "Could not load the 3D preview.",
         })
       : null;
+
+  function setActivePartCard(fileId) {
+    activeFileId = String(fileId);
+    if (mainSection) mainSection.dataset.activeFileId = activeFileId;
+
+    grid.querySelectorAll(".part-card--previewable").forEach((card) => {
+      card.classList.toggle("part-card--active", card.dataset.fileId === activeFileId);
+    });
+  }
+
+  function showInMainViewer(previewUrl, fileName, fileId) {
+    if (!mainViewer || !previewUrl || String(fileId) === String(activeFileId)) return;
+
+    setActivePartCard(fileId);
+    if (mainTitle) mainTitle.textContent = fileName || "3D preview";
+    mainViewerUi?.showLoading();
+
+    window.customElements.whenDefined("model-viewer").then(() => {
+      mainViewer.setAttribute("src", previewUrl);
+      if (typeof mainViewer.dismissPoster === "function") {
+        mainViewer.dismissPoster();
+      }
+      mainViewer.cameraOrbit = "auto auto auto";
+    });
+
+    mainSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function clearSelection() {
     checkboxes().forEach((box) => {
@@ -107,30 +102,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function openPreviewModal(previewUrl, fileName) {
-    if (!modal || !modalViewer || !previewUrl) return;
-
-    modalTitle.textContent = fileName || "3D preview";
-    modal.classList.remove("hidden");
-    document.body.classList.add("modal-open");
-    modalViewerUi?.showLoading();
-
-    window.customElements.whenDefined("model-viewer").then(() => {
-      modalViewer.setAttribute("src", previewUrl);
-      if (typeof modalViewer.dismissPoster === "function") {
-        modalViewer.dismissPoster();
-      }
-      modalViewer.cameraOrbit = "auto auto auto";
-    });
-  }
-
-  function closePreviewModal() {
-    if (!modal || !modalViewer) return;
-    modal.classList.add("hidden");
-    document.body.classList.remove("modal-open");
-    modalViewer.removeAttribute("src");
-  }
-
   editBtn?.addEventListener("click", () => {
     setEditMode(!page.classList.contains("is-editing"));
   });
@@ -150,16 +121,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   grid.addEventListener("click", (event) => {
-    const expandBtn = event.target.closest(".part-card-expand");
-    if (expandBtn) {
-      event.stopPropagation();
-      openPreviewModal(expandBtn.dataset.previewUrl, expandBtn.dataset.fileName);
+    if (event.target.closest(".part-card-download") || event.target.closest(".part-card-check")) return;
+
+    const previewCard = event.target.closest(".part-card--previewable");
+    if (previewCard && !page.classList.contains("is-editing")) {
+      showInMainViewer(
+        previewCard.dataset.previewUrl,
+        previewCard.dataset.fileName,
+        previewCard.dataset.fileId,
+      );
       return;
     }
 
     if (!page.classList.contains("is-editing")) return;
-
-    if (event.target.closest(".part-card-download") || event.target.closest(".part-card-check")) return;
 
     const card = event.target.closest(".part-card--selectable");
     if (!card) return;
@@ -188,15 +162,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  modalClose?.addEventListener("click", closePreviewModal);
-  modal?.querySelectorAll("[data-close-modal]").forEach((el) => {
-    el.addEventListener("click", closePreviewModal);
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && modal && !modal.classList.contains("hidden")) {
-      closePreviewModal();
-    }
+  window.customElements?.whenDefined("model-viewer").then(() => {
+    if (mainViewer?.loaded) mainViewerUi?.hideLoading();
   });
 
   setEditMode(false);

@@ -881,6 +881,45 @@ img {
   margin-bottom: 2rem;
 }
 
+.part-main-viewer {
+  position: sticky;
+  top: 3.6rem;
+  z-index: 40;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  background: var(--bg);
+}
+
+.part-main-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.part-main-viewer-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.part-main-viewer-hint {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.part-main-viewer-wrap {
+  min-height: min(62vh, 680px);
+  border-radius: var(--radius);
+}
+
+.part-main-viewer-wrap model-viewer {
+  min-height: min(62vh, 680px);
+}
+
 .model-parts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -911,6 +950,32 @@ img {
   aspect-ratio: 4 / 3;
   background: radial-gradient(ellipse at center, #1f2937 0%, #0f1115 70%);
   overflow: hidden;
+}
+
+.part-card-preview--static {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.part-card-preview--static .part-card-thumb-icon {
+  color: rgba(248, 250, 252, 0.55);
+  transition: color 0.15s, transform 0.15s;
+}
+
+.part-card--previewable:hover .part-card-thumb-icon,
+.part-card--active .part-card-thumb-icon {
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
+.part-card--active {
+  border-color: rgba(245, 158, 11, 0.65);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+
+.part-card--previewable {
+  cursor: pointer;
 }
 
 .part-card-preview--image img {
