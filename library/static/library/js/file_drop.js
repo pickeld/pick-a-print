@@ -14,6 +14,17 @@
   const modelUrl = body.dataset.modelUploadUrl;
   const statusEl = overlay.querySelector(".file-drop-status");
   const hintEl = overlay.querySelector(".file-drop-hint");
+  const dropProgressWrap = document.getElementById("file-drop-progress");
+  const dropProgressBar = document.getElementById("file-drop-progress-bar");
+  const dropProgressLabel = document.getElementById("file-drop-progress-label");
+  const dropProgressTrack = dropProgressWrap?.querySelector(".progress-track");
+
+  const scanForm = document.getElementById("scan-upload-form");
+  const scanSubmitBtn = document.getElementById("scan-submit-btn");
+  const scanProgressWrap = document.getElementById("scan-upload-progress");
+  const scanProgressBar = document.getElementById("scan-upload-progress-bar");
+  const scanProgressLabel = document.getElementById("scan-upload-progress-label");
+  const scanProgressTrack = scanProgressWrap?.querySelector(".progress-track");
 
   let dragDepth = 0;
   let uploading = false;
@@ -43,13 +54,56 @@
     return [...(event.dataTransfer?.types || [])].includes("Files");
   }
 
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 1) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let value = bytes;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit += 1;
+    }
+    return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+  }
+
   function setStatus(message) {
     if (statusEl) statusEl.textContent = message;
+  }
+
+  function updateProgressUI({ wrap, bar, label, track }, loaded, total, statusText) {
+    if (!wrap || !bar || !label) return;
+    wrap.hidden = false;
+
+    if (loaded == null || total == null || total <= 0) {
+      track?.classList.add("progress-track--indeterminate");
+      bar.style.width = "35%";
+      label.textContent = statusText || "Uploading…";
+      return;
+    }
+
+    track?.classList.remove("progress-track--indeterminate");
+    const percent = Math.min(100, Math.round((loaded / total) * 100));
+    bar.style.width = `${percent}%`;
+    label.textContent = statusText || `${percent}% · ${formatBytes(loaded)} / ${formatBytes(total)}`;
+  }
+
+  function resetProgressUI({ wrap, bar, label, track }) {
+    if (!wrap || !bar || !label) return;
+    wrap.hidden = true;
+    bar.style.width = "0%";
+    label.textContent = "Uploading…";
+    track?.classList.remove("progress-track--indeterminate");
   }
 
   function showOverlay(kind) {
     overlay.hidden = false;
     overlay.classList.add("file-drop-overlay--active");
+    resetProgressUI({
+      wrap: dropProgressWrap,
+      bar: dropProgressBar,
+      label: dropProgressLabel,
+      track: dropProgressTrack,
+    });
     if (kind === "model") {
       setStatus("Drop to save model");
       if (hintEl) hintEl.textContent = ".stl · .3mf";
@@ -70,6 +124,12 @@
     overlay.classList.remove("file-drop-overlay--active");
     overlay.hidden = true;
     dragDepth = 0;
+    resetProgressUI({
+      wrap: dropProgressWrap,
+      bar: dropProgressBar,
+      label: dropProgressLabel,
+      track: dropProgressTrack,
+    });
   }
 
   function classifyFiles(files) {
@@ -95,48 +155,125 @@
     return null;
   }
 
-  async function postForm(url, fields) {
-    const formData = new FormData();
-    formData.append("csrfmiddlewaretoken", getCsrfToken());
-    for (const [key, value] of Object.entries(fields)) {
-      if (Array.isArray(value)) {
-        value.forEach((item) => formData.append(key, item));
-      } else {
-        formData.append(key, value);
+  function postFormXhr(url, fields, { onProgress } = {}) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append("csrfmiddlewaretoken", getCsrfToken());
+      for (const [key, value] of Object.entries(fields)) {
+        if (Array.isArray(value)) {
+          value.forEach((item) => formData.append(key, item));
+        } else if (value !== undefined && value !== null) {
+          formData.append(key, value);
+        }
       }
-    }
 
-    return fetch(url, {
-      method: "POST",
-      body: formData,
-      credentials: "same-origin",
-      redirect: "follow",
+      xhr.open("POST", url);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader("Accept", "application/json, text/html;q=0.9, */*;q=0.8");
+
+      xhr.upload.addEventListener("progress", (event) => {
+        if (!onProgress) return;
+        if (event.lengthComputable) {
+          onProgress(event.loaded, event.total);
+        } else {
+          onProgress(null, null);
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        resolve({
+          status: xhr.status,
+          responseURL: xhr.responseURL,
+          responseText: xhr.responseText,
+          getHeader: (name) => xhr.getResponseHeader(name),
+        });
+      });
+
+      xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
+      xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
+
+      xhr.send(formData);
     });
   }
 
-  async function uploadModels(files) {
+  function readUploadResponse(result, requestUrl, fallbackLabel) {
+    const contentType = result.getHeader("content-type") || "";
+    if (contentType.includes("application/json")) {
+      let data;
+      try {
+        data = JSON.parse(result.responseText);
+      } catch (_error) {
+        throw new Error(`${fallbackLabel} failed`);
+      }
+      if (result.status >= 400) {
+        throw new Error(data.error || `${fallbackLabel} failed`);
+      }
+      if (data.redirect) return data.redirect;
+      throw new Error(data.error || `${fallbackLabel} failed`);
+    }
+    if (result.status >= 400) {
+      throw new Error(`${fallbackLabel} failed (${result.status})`);
+    }
+    if (result.responseURL && result.responseURL !== requestUrl) {
+      return result.responseURL;
+    }
+    throw new Error(`${fallbackLabel} failed`);
+  }
+
+  async function uploadModels(files, progressUi) {
     let lastUrl = modelUrl;
     for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
       setStatus(`Uploading model ${i + 1} of ${files.length}…`);
-      const response = await postForm(modelUrl, {
-        save_upload: "1",
-        "upload-file": files[i],
-      });
-      lastUrl = response.url;
-      if (!response.ok && !response.redirected) {
-        throw new Error(`Model upload failed (${response.status})`);
-      }
+      if (hintEl) hintEl.textContent = file.name;
+      const result = await postFormXhr(
+        modelUrl,
+        {
+          save_upload: "1",
+          "upload-file": file,
+        },
+        {
+          onProgress: (loaded, total) => {
+            updateProgressUI(
+              progressUi,
+              loaded,
+              total,
+              total
+                ? `Model ${i + 1}/${files.length} · ${Math.round((loaded / total) * 100)}%`
+                : `Model ${i + 1}/${files.length} · uploading…`,
+            );
+          },
+        },
+      );
+      lastUrl = readUploadResponse(result, modelUrl, "Model upload");
     }
     return lastUrl;
   }
 
-  async function uploadScan(files) {
+  async function uploadScan(files, progressUi) {
+    const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
     setStatus(`Starting scan with ${files.length} file${files.length === 1 ? "" : "s"}…`);
-    const response = await postForm(scanUrl, { files });
-    if (!response.ok && !response.redirected) {
-      throw new Error(`Scan upload failed (${response.status})`);
+    if (hintEl) {
+      hintEl.textContent = files.length === 1 ? files[0].name : `${files.length} files · ${formatBytes(totalBytes)}`;
     }
-    return response.url;
+    const result = await postFormXhr(
+      scanUrl,
+      { files, file_drop: "1" },
+      {
+        onProgress: (loaded, total) => {
+          updateProgressUI(
+            progressUi,
+            loaded,
+            total,
+            total
+              ? `Uploading scan · ${Math.round((loaded / total) * 100)}% · ${formatBytes(loaded)} / ${formatBytes(total)}`
+              : "Uploading scan…",
+          );
+        },
+      },
+    );
+    return readUploadResponse(result, scanUrl, "Scan upload");
   }
 
   async function handleFiles(fileList) {
@@ -160,17 +297,24 @@
 
     uploading = true;
     overlay.classList.add("file-drop-overlay--uploading");
+    const progressUi = {
+      wrap: dropProgressWrap,
+      bar: dropProgressBar,
+      label: dropProgressLabel,
+      track: dropProgressTrack,
+    };
 
     try {
       let redirectUrl = null;
 
       if (model.length) {
-        redirectUrl = await uploadModels(model);
+        redirectUrl = await uploadModels(model, progressUi);
       }
       if (scan.length) {
-        redirectUrl = await uploadScan(scan);
+        redirectUrl = await uploadScan(scan, progressUi);
       }
 
+      updateProgressUI(progressUi, 1, 1, "Finishing…");
       window.location.href = redirectUrl || (scan.length ? scanUrl : modelUrl);
     } catch (error) {
       uploading = false;
@@ -182,6 +326,72 @@
         hideOverlay();
       }, 2800);
     }
+  }
+
+  if (scanForm && scanSubmitBtn) {
+    scanForm.addEventListener("submit", async (event) => {
+      if (scanSubmitBtn.disabled) return;
+      event.preventDefault();
+
+      const fileInput = scanForm.querySelector('input[name="files"]');
+      const files = fileInput?.files ? [...fileInput.files] : [];
+      if (!files.length) return;
+
+      scanSubmitBtn.disabled = true;
+      const progressUi = {
+        wrap: scanProgressWrap,
+        bar: scanProgressBar,
+        label: scanProgressLabel,
+        track: scanProgressTrack,
+      };
+      resetProgressUI(progressUi);
+      if (scanProgressLabel) scanProgressLabel.style.color = "";
+      updateProgressUI(progressUi, null, null, "Preparing upload…");
+
+      const fields = { files, file_drop: "1" };
+      for (const element of scanForm.elements) {
+        if (!element.name || element === fileInput) continue;
+        if (element.name === "csrfmiddlewaretoken") continue;
+        if (element.type === "file" || element.type === "submit") continue;
+        if ((element.type === "checkbox" || element.type === "radio") && !element.checked) continue;
+        if (element.type === "select-multiple") {
+          [...element.selectedOptions].forEach((option) => {
+            fields[element.name] = fields[element.name] || [];
+            fields[element.name].push(option.value);
+          });
+          continue;
+        }
+        fields[element.name] = element.value;
+      }
+
+      try {
+        const result = await postFormXhr(scanUrl, fields, {
+          onProgress: (loaded, total) => {
+            updateProgressUI(
+              progressUi,
+              loaded,
+              total,
+              total
+                ? `Uploading · ${Math.round((loaded / total) * 100)}% · ${formatBytes(loaded)} / ${formatBytes(total)}`
+                : "Uploading…",
+            );
+          },
+        });
+        const redirectUrl = readUploadResponse(result, scanUrl, "Scan upload");
+        updateProgressUI(progressUi, 1, 1, "Starting scan…");
+        window.location.href = redirectUrl;
+      } catch (error) {
+        scanSubmitBtn.disabled = false;
+        resetProgressUI(progressUi);
+        if (scanProgressWrap) {
+          scanProgressWrap.hidden = false;
+          if (scanProgressLabel) {
+            scanProgressLabel.textContent = error.message || "Upload failed";
+            scanProgressLabel.style.color = "var(--danger, #ef4444)";
+          }
+        }
+      }
+    });
   }
 
   window.addEventListener("dragenter", (event) => {
