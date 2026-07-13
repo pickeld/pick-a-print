@@ -12,7 +12,11 @@
 {% block content %}
 <div class="detail-layout{% if preview_file %} detail-layout--with-viewer{% endif %}">
   {% if preview_file %}
-  <section class="detail-preview detail-preview--viewer">
+  <section
+    class="detail-preview detail-preview--viewer"
+    id="model-preview-section"
+    data-active-file-id="{{ preview_file.pk }}"
+  >
     <div class="scan-viewer-header">
       <h3>3D Preview</h3>
       <span class="text-muted scan-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>
@@ -46,6 +50,39 @@
         alt="{{ model.title }} 3D preview"
       ></model-viewer>
     </div>
+    {% if preview_files|length > 1 %}
+    <div class="model-file-thumbs" id="model-file-thumbs" role="listbox" aria-label="Model parts">
+      {% for f in preview_files %}
+      <button
+        type="button"
+        class="model-file-thumb{% if f.pk == preview_file.pk %} model-file-thumb--active{% endif %}"
+        role="option"
+        aria-selected="{% if f.pk == preview_file.pk %}true{% else %}false{% endif %}"
+        data-file-id="{{ f.pk }}"
+        data-preview-url="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
+        title="{{ f.original_name }}"
+      >
+        <span class="model-file-thumb-preview" aria-hidden="true">
+          <model-viewer
+            class="model-file-thumb-viewer"
+            loading="lazy"
+            interaction-policy="none"
+            camera-controls="false"
+            disable-zoom
+            auto-rotate
+            rotation-per-second="8deg"
+            shadow-intensity="0.3"
+            exposure="1"
+            camera-orbit="45deg 75deg auto"
+            src="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
+            alt=""
+          ></model-viewer>
+        </span>
+        <span class="model-file-thumb-label">{{ f.original_name|truncatechars:28 }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
   </section>
   {% else %}
   <div class="detail-preview">

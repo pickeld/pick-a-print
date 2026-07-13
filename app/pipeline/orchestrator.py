@@ -8,7 +8,6 @@ from pathlib import Path
 
 from app.engines.blender import BlenderEngine
 from app.engines.colmap import ColmapEngine
-from app.engines.ffmpeg import FfmpegEngine
 from app.engines.openmvs import OpenMvsEngine
 from app.engines.trimesh_engine import TrimeshEngine
 from app.models.enums import JobStage, PIPELINE_STAGES
@@ -41,7 +40,6 @@ class ReconstructionPipeline:
         self.config = config or PipelineConfig.from_env()
         self.job = Job.load(self.config.workspace_root, job_id)
         self.ws = JobWorkspace(self.config.workspace_root, job_id)
-        self.ffmpeg = FfmpegEngine()
         self.colmap = ColmapEngine()
         self.openmvs = OpenMvsEngine()
         self.trimesh = TrimeshEngine()
@@ -326,25 +324,9 @@ class ReconstructionPipeline:
             )
             self._persist()
 
-        videos = prepared.videos
         images = prepared.images
 
-        if videos:
-            self.job.append_log(f"Using video: {videos[0].name}", JobStage.PREPROCESSING)
-            self.job.append_log(
-                f"Extracting frames at {self.config.ffmpeg.fps} fps, "
-                f"max width {self.config.ffmpeg.max_width}px",
-                JobStage.PREPROCESSING,
-            )
-            self._persist()
-            result = self.ffmpeg.extract_frames(
-                videos[0],
-                self.ws.frames_dir,
-                self.config.ffmpeg,
-            )
-            if not result.ok:
-                raise StageError(result.message)
-        elif images:
+        if images:
             self.job.append_log(f"Copying {len(images)} image(s) to frames/", JobStage.PREPROCESSING)
             self._persist()
             for index, img in enumerate(images):
@@ -353,7 +335,7 @@ class ReconstructionPipeline:
                 shutil.copy2(img, dest)
         else:
             raise StageError(
-                "Input must contain images, a video, or a .zip archive with photos/video inside"
+                "Input must contain photos or a .zip archive with photos inside"
             )
 
         frame_count = count_frames(self.ws.frames_dir)

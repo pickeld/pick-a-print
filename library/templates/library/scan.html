@@ -34,7 +34,7 @@
 {% block content %}
 <div class="page-header">
   <h2>3D Scan</h2>
-  <p>Upload photos, a video, or a .zip archive to generate a printable STL model</p>
+  <p>Upload photos or a .zip archive to generate a printable STL model</p>
 </div>
 
 {% if scan_worker_status %}
@@ -61,9 +61,9 @@
       {% csrf_token %}
 
       <div class="form-group">
-        <label for="scan-files">Photos, video, or .zip</label>
-        <input type="file" id="scan-files" name="files" multiple required accept="image/*,video/*,.zip,.mp4,.mov,.webm">
-        <div class="helptext">Upload individual photos, a video, or a .zip containing images/video. At least 8 photos recommended. Or drag and drop anywhere in the app.{% if cloudflare_proxy %} Large videos (up to {{ scan_total_max_upload_mb }} MB) upload in pieces automatically through Cloudflare.{% endif %}</div>
+        <label for="scan-files">Photos or .zip</label>
+        <input type="file" id="scan-files" name="files" multiple required accept="image/*,.zip">
+        <div class="helptext">Upload individual photos or a .zip containing images. At least 8 photos recommended from different angles. Or drag and drop anywhere in the app.{% if cloudflare_proxy %} Large archives (up to {{ scan_total_max_upload_mb }} MB) upload in pieces automatically through Cloudflare.{% endif %}</div>
       </div>
 
       <div class="form-group">

@@ -5,9 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v"}
 ARCHIVE_EXTENSIONS = {".zip"}
-MEDIA_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
+MEDIA_EXTENSIONS = IMAGE_EXTENSIONS
 
 SKIP_DIR_NAMES = {"__MACOSX"}
 SKIP_FILE_NAMES = {".ds_store"}
@@ -18,11 +17,10 @@ class ExtractResult:
     archives: list[Path] = field(default_factory=list)
     extracted_files: int = 0
     images: list[Path] = field(default_factory=list)
-    videos: list[Path] = field(default_factory=list)
 
     @property
     def media_count(self) -> int:
-        return len(self.images) + len(self.videos)
+        return len(self.images)
 
 
 def _should_skip(path: Path) -> bool:
@@ -85,10 +83,9 @@ def extract_zip_archives(input_dir: Path) -> tuple[list[Path], int]:
     return archives, total_files
 
 
-def collect_media_files(input_dir: Path) -> tuple[list[Path], list[Path]]:
-    """Recursively find images and videos under input_dir."""
+def collect_image_files(input_dir: Path) -> list[Path]:
+    """Recursively find images under input_dir."""
     images: list[Path] = []
-    videos: list[Path] = []
 
     for path in sorted(input_dir.rglob("*")):
         if not path.is_file():
@@ -100,19 +97,16 @@ def collect_media_files(input_dir: Path) -> tuple[list[Path], list[Path]]:
             continue
         if ext in IMAGE_EXTENSIONS:
             images.append(path)
-        elif ext in VIDEO_EXTENSIONS:
-            videos.append(path)
 
-    return images, videos
+    return images
 
 
 def prepare_scan_input(input_dir: Path) -> ExtractResult:
-    """Extract zip archives and collect all images/videos for the scan pipeline."""
+    """Extract zip archives and collect photos for the scan pipeline."""
     archives, extracted_count = extract_zip_archives(input_dir)
-    images, videos = collect_media_files(input_dir)
+    images = collect_image_files(input_dir)
     return ExtractResult(
         archives=archives,
         extracted_files=extracted_count,
         images=images,
-        videos=videos,
     )

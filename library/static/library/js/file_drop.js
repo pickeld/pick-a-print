@@ -1,7 +1,6 @@
 (() => {
   const SCAN_EXTENSIONS = new Set([
     ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif",
-    ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v",
     ".zip",
   ]);
   const MODEL_EXTENSIONS = new Set([".stl", ".3mf"]);
@@ -51,7 +50,7 @@
     const ext = fileExtension(file.name);
     if (MODEL_EXTENSIONS.has(ext)) return "model";
     if (SCAN_EXTENSIONS.has(ext)) return "scan";
-    if (file.type.startsWith("image/") || file.type.startsWith("video/")) return "scan";
+    if (file.type.startsWith("image/")) return "scan";
     if (file.type === "application/zip") return "scan";
     return null;
   }
@@ -91,7 +90,7 @@
 
     const maxMb = Math.round(hardLimit / (1024 * 1024));
     if (cloudflareProxy && files.length > 1 && total > maxScanBytes) {
-      return `Total ${formatBytes(total)} is too large for one request. Upload a large video by itself, or stay under ${maxMb} MB total.`;
+      return `Total ${formatBytes(total)} is too large for one request. Stay under ${maxMb} MB total.`;
     }
     if (cloudflareProxy) {
       return `Total ${formatBytes(total)} exceeds ${maxMb} MB.`;
@@ -149,13 +148,13 @@
       if (hintEl) hintEl.textContent = ".stl · .3mf";
     } else if (kind === "scan") {
       setStatus("Drop to start scan");
-      if (hintEl) hintEl.textContent = "photos · video · .zip";
+      if (hintEl) hintEl.textContent = "photos · .zip";
     } else if (kind === "mixed") {
       setStatus("Drop files to upload");
       if (hintEl) hintEl.textContent = "scan media and model files will be routed automatically";
     } else {
       setStatus("Drop files to upload");
-      if (hintEl) hintEl.textContent = "photos, video, zip → scan · stl, 3mf → library";
+      if (hintEl) hintEl.textContent = "photos, zip → scan · stl, 3mf → library";
     }
   }
 

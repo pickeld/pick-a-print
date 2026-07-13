@@ -32,7 +32,7 @@ STAGE_STALE_AFTER_SEC: dict[JobStage, int] = {
 
 STAGE_HINTS: dict[JobStage, str] = {
     JobStage.UPLOADED: "Waiting for the scan worker to pick up this job.",
-    JobStage.PREPROCESSING: "Extracting frames from video — duration depends on clip length.",
+    JobStage.PREPROCESSING: "Preparing photos for reconstruction.",
     JobStage.DENSE_RECONSTRUCTION: "Dense stereo reconstruction — progress updates per depth map (often 10–45 minutes on Jetson GPU).",
     JobStage.MESHING: "Building the surface mesh from the point cloud.",
 }

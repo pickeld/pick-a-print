@@ -867,6 +867,69 @@ img {
   min-height: 420px;
 }
 
+.model-file-thumbs {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+}
+
+.model-file-thumb {
+  flex: 0 0 auto;
+  width: 104px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  padding: 0;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  color: inherit;
+  font: inherit;
+}
+
+.model-file-thumb:hover {
+  border-color: var(--text-muted);
+}
+
+.model-file-thumb--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.model-file-thumb-preview {
+  display: block;
+  height: 76px;
+  overflow: hidden;
+  border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
+  background: radial-gradient(ellipse at center, #1f2937 0%, #0f1115 70%);
+}
+
+.model-file-thumb-viewer {
+  display: block;
+  width: 100%;
+  height: 76px;
+  pointer-events: none;
+  --poster-color: transparent;
+}
+
+.model-file-thumb-label {
+  display: block;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.65rem;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.model-file-thumb--active .model-file-thumb-label {
+  color: var(--text);
+}
+
 .detail-info h2 {
   margin: 0 0 0.5rem;
   font-size: 1.75rem;

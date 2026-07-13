@@ -38,12 +38,6 @@ PIPELINE_TOOLS = [
         "source": "worker image (apt)",
     },
     {
-        "name": "FFmpeg",
-        "version_key": "ffmpeg",
-        "github_repo": "FFmpeg/FFmpeg",
-        "source": "worker image (apt)",
-    },
-    {
         "name": "Blender",
         "version_key": "blender",
         "github_repo": "blender/blender",

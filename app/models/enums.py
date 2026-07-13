@@ -35,7 +35,6 @@ PIPELINE_STAGES: tuple[JobStage, ...] = (
 
 
 class ArtifactType(StrEnum):
-    INPUT_VIDEO = "input_video"
     INPUT_IMAGE = "input_image"
     FRAME = "frame"
     COLMAP_SPARSE = "colmap_sparse"

@@ -58,7 +58,6 @@
           "name": "files",
           "accept": [
             "image/*",
-            "video/*",
             "application/zip",
             "model/stl",
             "model/3mf",

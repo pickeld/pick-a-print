@@ -8,8 +8,7 @@ from library.scan_services import ScanError, create_scan_job
 from library.services import ModelSaveError, save_model_from_upload, save_model_from_url
 
 SCAN_EXTENSIONS = {
-    ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif",
-    ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".zip",
+    ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".zip",
 }
 MODEL_EXTENSIONS = {".stl", ".3mf"}
 URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
@@ -31,7 +30,7 @@ def classify_upload(filename: str, content_type: str = "") -> str | None:
         return "model"
     if ext in SCAN_EXTENSIONS:
         return "scan"
-    if content_type.startswith("image/") or content_type.startswith("video/"):
+    if content_type.startswith("image/"):
         return "scan"
     if content_type == "application/zip":
         return "scan"

@@ -67,7 +67,6 @@ def build_manifest(request) -> dict:
                         "name": "files",
                         "accept": [
                             "image/*",
-                            "video/*",
                             "text/plain",
                             "text/*",
                             "application/zip",

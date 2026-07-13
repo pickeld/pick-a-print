@@ -417,11 +417,21 @@ def model_detail_view(request, pk):
             messages.success(request, "Model updated.")
             return redirect("model_detail", pk=model.pk)
 
-    return render(request, "library/model_detail.html", {"model": model, "form": form, "preview_file": _preview_file_for_model(model)})
+    preview_files = _preview_files_for_model(model)
+    return render(
+        request,
+        "library/model_detail.html",
+        {
+            "model": model,
+            "form": form,
+            "preview_files": preview_files,
+            "preview_file": preview_files[0] if preview_files else None,
+        },
+    )
 
 
-def _preview_file_for_model(model: SavedModel) -> ModelFile | None:
-    return model.files.filter(file_type__in=["stl", "3mf"]).first()
+def _preview_files_for_model(model: SavedModel) -> list[ModelFile]:
+    return list(model.files.filter(file_type__in=["stl", "3mf"]).order_by("-created_at"))
 
 
 @login_required

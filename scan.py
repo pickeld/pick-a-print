@@ -24,7 +24,7 @@ def setup_logging(verbose: bool) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Photogrammetry scan-to-STL pipeline")
-    parser.add_argument("--input", "-i", required=True, type=Path, help="Input images directory or video file")
+    parser.add_argument("--input", "-i", required=True, type=Path, help="Input images directory")
     parser.add_argument("--output", "-o", required=True, type=Path, help="Output directory for final artifacts")
     parser.add_argument("--job-id", type=str, default=None, help="Job ID (auto-generated if omitted)")
     parser.add_argument("--workspace", type=Path, default=Path("./data/jobs"), help="Job workspace root")

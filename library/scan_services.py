@@ -124,7 +124,7 @@ def _validate_upload_files(files) -> None:
         if ext not in allowed:
             raise ScanError(
                 f"Unsupported file type: {uploaded.name}. "
-                "Upload photos, video, or a .zip archive."
+                "Upload photos or a .zip archive."
             )
 
 
@@ -139,7 +139,7 @@ def create_scan_job(
     bypass_cloudflare_limit: bool = False,
 ) -> ScanJob:
     if not files:
-        raise ScanError("Upload at least one photo, video, or .zip archive.")
+        raise ScanError("Upload at least one photo or .zip archive.")
 
     from library.scan_worker import assert_scan_worker_ready
 
@@ -158,7 +158,7 @@ def create_scan_job(
         raise ScanError(
             f"Total upload exceeds {limit_mb} MB limit."
             + (
-                " Cloudflare caps single uploads at ~100 MB — large videos are uploaded in chunks automatically."
+                " Cloudflare caps single uploads at ~100 MB — large archives are uploaded in chunks automatically."
                 if settings.CLOUDFLARE_PROXY and not bypass_cloudflare_limit
                 else ""
             )
