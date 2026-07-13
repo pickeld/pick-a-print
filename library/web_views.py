@@ -3,13 +3,18 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from django.http import FileResponse, JsonResponse
+from django.contrib.staticfiles import finders
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+import json
+from pathlib import Path
 from rest_framework.authtoken.models import Token
 
 from library.forms import CollectionForm, LoginForm, ModelUpdateForm, SaveModelForm, ScanUploadForm, SearchForm, UploadModelForm
-from library.models import Collection, ModelFile, ModelStatus, SavedModel, ScanJob
+from library.models import Collection, ModelFile, ModelStatus, SavedModel, ScanJob, SiteConfig
 from library.scan_services import (
     ScanError,
     build_status_payload,
@@ -21,7 +26,49 @@ from library.scan_services import (
     workspace_root,
 )
 from app.pipeline.workspace import JobWorkspace
+from library.pwa_manifest import build_manifest
+from library.pwa_share import process_share_import
+from library.scan_worker import (
+    ScanWorkerTestResult,
+    count_celery_scan_workers,
+    normalize_jetson_host,
+    run_jetson_connection_test,
+    save_connection_test_result,
+    scan_worker_status,
+    validate_jetson_health_token,
+    validate_jetson_host,
+)
 from library.services import ModelSaveError, save_model_from_upload, save_model_from_url
+
+
+def _parse_scan_worker_payload(request) -> dict:
+    if request.content_type == "application/json":
+        try:
+            return json.loads(request.body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return {}
+    return request.POST
+
+
+def _apply_scan_worker_fields(config: SiteConfig, payload: dict) -> str | None:
+    config.jetson_host = normalize_jetson_host(str(payload.get("jetson_host", "")))
+    try:
+        config.jetson_health_port = max(1, min(65535, int(payload.get("jetson_health_port", 8765))))
+    except (TypeError, ValueError):
+        config.jetson_health_port = 8765
+    config.jetson_enabled = bool(payload.get("jetson_enabled"))
+
+    if "jetson_health_token" in payload:
+        token_value = str(payload.get("jetson_health_token", "")).strip()
+        if token_value:
+            config.jetson_health_token = token_value
+
+    if config.jetson_enabled:
+        host_error = validate_jetson_host(config.jetson_host)
+        if host_error:
+            return host_error
+        return validate_jetson_health_token(config.jetson_health_token)
+    return None
 
 
 def _user_collections(user):
@@ -200,8 +247,18 @@ def model_save_view(request):
 @login_required
 def settings_view(request):
     active_tab = request.GET.get("tab", "api")
-    if active_tab not in ("api", "about", "downloads"):
+    if active_tab not in ("api", "about", "downloads", "app", "scan"):
         active_tab = "api"
+
+    if active_tab == "scan" and request.method == "POST" and "save_scan_worker" in request.POST:
+        config = SiteConfig.get()
+        error = _apply_scan_worker_fields(config, request.POST)
+        if error:
+            messages.error(request, error)
+        else:
+            config.save()
+            messages.success(request, "Scan worker settings saved.")
+        return redirect(f"{reverse('settings')}?tab=scan")
 
     token, _ = Token.objects.get_or_create(user=request.user)
     api_base = request.build_absolute_uri("/api").rstrip("/")
@@ -247,7 +304,81 @@ def settings_view(request):
         context["tools_manifest"] = PIPELINE_TOOLS
         context["image_versions"] = _load_image_versions()
 
+    if active_tab == "scan":
+        config = SiteConfig.get()
+        context["scan_worker_config"] = config
+        context["scan_worker_status"] = scan_worker_status()
+        context["scan_worker_status_json"] = json.dumps(context["scan_worker_status"])
+
     return render(request, "library/settings.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def scan_worker_save_view(request):
+    config = SiteConfig.get()
+    payload = _parse_scan_worker_payload(request)
+    error = _apply_scan_worker_fields(config, payload)
+    if error:
+        return JsonResponse({"ok": False, "message": error}, status=400)
+
+    config.save()
+    status = scan_worker_status()
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "Scan worker settings saved.",
+            **status,
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def scan_worker_check_view(request):
+    config = SiteConfig.get()
+    payload = _parse_scan_worker_payload(request)
+    error = _apply_scan_worker_fields(config, payload)
+    if error and config.jetson_enabled:
+        return JsonResponse({"ok": False, "message": error}, status=400)
+    config.save()
+
+    host_reachable = False
+    if config.jetson_enabled:
+        result = run_jetson_connection_test(
+            host=config.jetson_host,
+            port=config.jetson_health_port,
+            token=config.jetson_health_token,
+        )
+        host_reachable = result.host_reachable
+        save_connection_test_result(config, result)
+    else:
+        worker_count, worker_error = count_celery_scan_workers()
+        result_ok = worker_count > 0
+        message = (
+            f"{worker_count} scan worker(s) connected."
+            if result_ok
+            else worker_error or "No scan worker is connected to Redis."
+        )
+        save_connection_test_result(
+            config,
+            ScanWorkerTestResult(
+                ok=result_ok,
+                host_reachable=False,
+                celery_workers=worker_count,
+                message=message,
+            ),
+        )
+
+    status = scan_worker_status()
+    return JsonResponse(
+        {
+            "ok": status["last_test_ok"],
+            "host_reachable": host_reachable,
+            "message": status["last_test_message"],
+            **status,
+        }
+    )
 
 
 @login_required
@@ -359,6 +490,11 @@ def scan_list_view(request):
 
     if request.method == "POST":
         files = request.FILES.getlist("files")
+        is_file_drop = request.POST.get("file_drop") == "1"
+
+        if is_file_drop and not files:
+            return JsonResponse({"error": "No files received."}, status=400)
+
         if form.is_valid():
             tag_names = [t.strip() for t in form.cleaned_data["tag_names"].split(",") if t.strip()]
             collection_ids = list(form.cleaned_data["collections"].values_list("id", flat=True))
@@ -371,10 +507,18 @@ def scan_list_view(request):
                     collection_ids=collection_ids or None,
                 )
             except ScanError as exc:
+                if is_file_drop:
+                    return JsonResponse({"error": str(exc)}, status=400)
                 messages.error(request, str(exc))
             else:
+                if is_file_drop:
+                    return JsonResponse(
+                        {"redirect": reverse("scan_job", kwargs={"job_id": scan_job.job_id})}
+                    )
                 messages.success(request, "Scan started. Track progress below.")
                 return redirect("scan_job", job_id=scan_job.job_id)
+        elif is_file_drop:
+            return JsonResponse({"error": "Invalid upload."}, status=400)
 
     return render(
         request,
@@ -383,6 +527,7 @@ def scan_list_view(request):
             "form": form,
             "recent": recent,
             "pipeline_steps": get_pipeline_steps(),
+            "scan_worker_status": scan_worker_status(),
         },
     )
 
@@ -457,3 +602,41 @@ def scan_download_view(request, job_id, filename):
     if inline:
         response["Cache-Control"] = "private, max-age=3600"
     return response
+
+
+def service_worker_view(request):
+    sw_path = finders.find("library/js/service-worker.js")
+    if not sw_path:
+        return HttpResponse("Service worker not found.", status=404)
+    content = Path(sw_path).read_text(encoding="utf-8")
+    response = HttpResponse(content, content_type="application/javascript")
+    response["Service-Worker-Allowed"] = "/"
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+def manifest_view(request):
+    payload = build_manifest(request)
+    response = HttpResponse(json.dumps(payload), content_type="application/manifest+json")
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def share_target_view(request):
+    if not request.user.is_authenticated:
+        messages.info(request, "Sign in to import shared content into Pick-a-Print.")
+        return redirect("login")
+
+    source = request.GET if request.method == "GET" else request.POST
+    title = source.get("title", "").strip()
+    text = source.get("text", "").strip()
+    url = source.get("url", "").strip()
+    files = request.FILES.getlist("files") if request.method == "POST" else []
+
+    try:
+        return process_share_import(request, title=title, text=text, url=url, files=files)
+    except (ModelSaveError, ScanError) as exc:
+        messages.error(request, str(exc))
+        return redirect("home")

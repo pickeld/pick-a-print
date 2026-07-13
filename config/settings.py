@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
 
+import mimetypes
 from dotenv import load_dotenv
+
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 load_dotenv(override=False)
 

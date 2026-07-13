@@ -140,6 +140,10 @@ def create_scan_job(
     if not files:
         raise ScanError("Upload at least one photo, video, or .zip archive.")
 
+    from library.scan_worker import assert_scan_worker_ready
+
+    assert_scan_worker_ready()
+
     _validate_upload_files(files)
 
     max_bytes = settings.SCAN_MAX_UPLOAD_MB * 1024 * 1024

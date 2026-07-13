@@ -4,7 +4,11 @@
 {% block title %}Settings — Pick-a-Print{% endblock %}
 
 {% block head_extra %}
+{% if active_tab == 'about' %}
 <script src="{% static 'library/js/about.js' %}" defer></script>
+{% elif active_tab == 'scan' %}
+<script src="{% static 'library/js/scan_worker.js' %}" defer></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -16,6 +20,8 @@
 <div class="tabs">
   <a href="?tab=api" class="tab {% if active_tab == 'api' %}active{% endif %}">API &amp; Extension</a>
   <a href="?tab=downloads" class="tab {% if active_tab == 'downloads' %}active{% endif %}">Auto-download</a>
+  <a href="?tab=scan" class="tab {% if active_tab == 'scan' %}active{% endif %}">Scan worker</a>
+  <a href="?tab=app" class="tab {% if active_tab == 'app' %}active{% endif %}">App</a>
   <a href="?tab=about" class="tab {% if active_tab == 'about' %}active{% endif %}">
     About
     {% if updates_available %}<span class="tab-dot" title="Updates available"></span>{% endif %}
@@ -51,6 +57,130 @@
     </table>
   </div>
   <p class="helptext" style="margin-bottom:0">Add tokens to <code>docker-compose.yml</code> (web + library-worker) or your <code>.env</code>, then rebuild.</p>
+</div>
+
+{% elif active_tab == 'scan' %}
+<div
+  id="scan-worker-panel"
+  class="form-card about-panel"
+  style="max-width:720px"
+  data-checks-url="{% url 'scan_worker_check' %}"
+  data-save-url="{% url 'scan_worker_save' %}"
+  data-initial-status="{{ scan_worker_status_json|escapejs }}"
+>
+  <p class="text-muted" style="margin-top:0">
+    Configure the Jetson GPU worker by DNS name or IP. When enabled, 3D scans only start after a successful connection test.
+    The Jetson worker still connects to this server over Redis and MinIO — expose port <code>{{ scan_worker_config.jetson_health_port }}</code> on the Jetson for reachability checks.
+  </p>
+
+  {% csrf_token %}
+
+  <div class="form-group">
+    <label for="jetson-host">Jetson address</label>
+    <input
+      type="text"
+      id="jetson-host"
+      name="jetson_host"
+      value="{{ scan_worker_config.jetson_host }}"
+      placeholder="jetson.example.com"
+      autocomplete="off"
+    >
+    <div class="helptext">Hostname or IP reachable from this server (Tailscale, public DNS, etc.).</div>
+  </div>
+
+  <div class="form-group">
+    <label for="jetson-health-port">Health port</label>
+    <input
+      type="number"
+      id="jetson-health-port"
+      name="jetson_health_port"
+      value="{{ scan_worker_config.jetson_health_port }}"
+      min="1"
+      max="65535"
+    >
+    <div class="helptext">HTTP <code>/health</code> endpoint on the Jetson worker (default 8765).</div>
+  </div>
+
+  <div class="form-group">
+    <label for="jetson-health-token">Health check token</label>
+    <input
+      type="password"
+      id="jetson-health-token"
+      name="jetson_health_token"
+      value=""
+      placeholder="{% if scan_worker_config.jetson_health_token %}•••••••• (saved){% else %}Same value as JETSON_HEALTH_TOKEN on Jetson{% endif %}"
+      autocomplete="new-password"
+    >
+    <div class="helptext">
+      Shared secret sent as <code>Authorization: Bearer …</code>. Set the same value in
+      <code>JETSON_HEALTH_TOKEN</code> on the Jetson. Leave blank to keep the saved token.
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="checkbox-label">
+      <input type="checkbox" id="jetson-enabled" name="jetson_enabled" {% if scan_worker_config.jetson_enabled %}checked{% endif %}>
+      Use Jetson GPU worker when connection test succeeds
+    </label>
+  </div>
+
+  <div id="scan-worker-status" class="scan-worker-status" aria-live="polite">
+    {% if scan_worker_config.last_test_message %}
+      <div class="scan-worker-status-grid">
+        <div>
+          {% if scan_worker_status.ready %}
+            <span class="badge badge-dep badge-dep-ok">Ready</span>
+          {% else %}
+            <span class="badge badge-dep badge-dep-warn">Not ready</span>
+          {% endif %}
+        </div>
+        <div class="text-muted">{{ scan_worker_config.last_test_message }}</div>
+        <div class="helptext">
+          Scan workers on Redis: {{ scan_worker_status.celery_workers }}
+          {% if scan_worker_config.last_test_at %} · Last tested {{ scan_worker_config.last_test_at }}{% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="text-muted">Run a connection test to verify the Jetson is reachable.</div>
+    {% endif %}
+  </div>
+
+  <div class="about-actions" style="margin-top:1rem">
+    <button type="button" class="btn btn-primary btn-sm" id="scan-worker-test-btn">Test connection</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="scan-worker-save-btn">Save settings</button>
+  </div>
+</div>
+
+{% elif active_tab == 'app' %}
+<div class="form-card pwa-settings" style="max-width:720px">
+  <h3 style="font-size:1rem;margin:0 0 0.75rem">Android Share requires Chrome</h3>
+  <p class="text-muted" style="margin-top:0">
+  <strong>Vivaldi cannot register Share targets on Android.</strong> It installs a home-screen wrapper, not a system WebAPK.
+  Only <strong>Chrome</strong> (and Samsung Internet on Samsung phones) mints the native app package that adds Pick-a-Print to the Share sheet.
+  </p>
+  <div id="pwa-status" class="pwa-status" hidden aria-live="polite"></div>
+  <div class="pwa-settings-actions">
+    <button type="button" class="btn btn-primary pwa-install-btn" id="pwa-settings-install-btn" hidden>📲 Install app</button>
+    <span class="pwa-installed-badge" id="pwa-installed-badge" hidden>Installed</span>
+  </div>
+
+  <h3 style="font-size:1rem;margin:1.25rem 0 0.75rem">Install with Chrome (for Share)</h3>
+  <ol class="pwa-steps">
+    <li>Remove the Vivaldi Pick-a-Print icon from your home screen.</li>
+    <li>Android <strong>Settings → Apps</strong> → uninstall any Pick-a-Print entry if present.</li>
+    <li>Open <strong>Chrome</strong> (not Vivaldi) → <strong>https://print.pickel.me</strong></li>
+    <li>Stay on the page ~30 seconds, tap once, then Chrome menu → <strong>Install app</strong>.</li>
+    <li>Verify: <strong>Settings → Apps</strong> shows <strong>Pick-a-Print</strong> as its own app (not inside Vivaldi/Chrome).</li>
+    <li>Open that app, sign in, then try Share from another app.</li>
+  </ol>
+
+  <h3 style="font-size:1rem;margin:1.75rem 0 0.75rem">What Share accepts</h3>
+  <ul class="pwa-share-types">
+    <li><strong>Model links</strong> from Printables, Thangs, etc. → saved to library</li>
+    <li><strong>.stl / .3mf files</strong> → uploaded as models</li>
+    <li><strong>Photos, video, or .zip</strong> → starts a 3D scan job</li>
+  </ul>
+  <p class="helptext" style="margin-bottom:0">You must be signed in before sharing. Keep using Vivaldi for browsing — only the Chrome install is needed for Share.</p>
 </div>
 
 {% elif active_tab == 'api' %}

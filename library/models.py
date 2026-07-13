@@ -159,3 +159,27 @@ class ScanJob(models.Model):
     @property
     def is_completed(self) -> bool:
         return self.stage == "COMPLETED"
+
+
+class SiteConfig(models.Model):
+    """Singleton site-wide settings (pk=1)."""
+
+    jetson_host = models.CharField(max_length=253, blank=True)
+    jetson_health_port = models.PositiveIntegerField(default=8765)
+    jetson_health_token = models.CharField(max_length=255, blank=True)
+    jetson_enabled = models.BooleanField(default=False)
+    last_test_at = models.DateTimeField(null=True, blank=True)
+    last_test_ok = models.BooleanField(default=False)
+    last_test_message = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Site configuration"
+        verbose_name_plural = "Site configuration"
+
+    def __str__(self) -> str:
+        return "Site configuration"
+
+    @classmethod
+    def get(cls) -> "SiteConfig":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

@@ -5,12 +5,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Pick-a-Print{% endblock %}</title>
+  {% include "library/partials/pwa_head.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'library/css/app.css' %}">
 </head>
-<body>
+<body data-share-url="{% url 'share_target' %}">
   {% block content %}{% endblock %}
+  <script src="{% static 'library/js/pwa.js' %}"></script>
 </body>
 </html>

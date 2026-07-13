@@ -8,6 +8,23 @@
   <p>Upload photos, a video, or a .zip archive to generate a printable STL model</p>
 </div>
 
+{% if scan_worker_status %}
+  {% if not scan_worker_status.ready %}
+  <div class="form-card scan-worker-alert" style="max-width:960px;margin-bottom:1rem">
+    <p style="margin:0">
+      {% if scan_worker_status.jetson_enabled %}
+        Jetson GPU scanning is enabled but not ready: {{ scan_worker_status.last_test_message|default:"connection test has not passed." }}
+        <a href="{% url 'settings' %}?tab=scan">Check scan worker settings</a>.
+      {% else %}
+        No scan worker is connected. Enable the Jetson in
+        <a href="{% url 'settings' %}?tab=scan">Settings</a>
+        or start the local scan worker on the server.
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+{% endif %}
+
 <div class="scan-layout">
   <div class="form-card">
     <h3 class="scan-card-title">New scan</h3>
@@ -36,7 +53,13 @@
       {% endif %}
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary" id="scan-submit-btn">Start scan</button>
+        <button type="submit" class="btn btn-primary" id="scan-submit-btn"{% if scan_worker_status and not scan_worker_status.ready %} disabled{% endif %}>Start scan</button>
+      </div>
+      <div id="scan-upload-progress" class="upload-progress" hidden>
+        <div class="progress-track progress-track--live" aria-hidden="true">
+          <div id="scan-upload-progress-bar" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <p id="scan-upload-progress-label" class="upload-progress-label">Uploading…</p>
       </div>
     </form>
   </div>

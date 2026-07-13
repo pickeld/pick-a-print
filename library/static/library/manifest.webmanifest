@@ -1,0 +1,73 @@
+{
+  "id": "/",
+  "name": "Pick-a-Print",
+  "short_name": "Pick-a-Print",
+  "description": "Your 3D printing library — save models, run scans, organize collections.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "theme_color": "#0b0d10",
+  "background_color": "#0b0d10",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/static/library/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/library/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/library/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Save model",
+      "short_name": "Save",
+      "url": "/models/save/",
+      "icons": [{ "src": "/static/library/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "3D scan",
+      "short_name": "Scan",
+      "url": "/scan/",
+      "icons": [{ "src": "/static/library/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "share_target": {
+    "action": "/share/",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "image/*",
+            "video/*",
+            "application/zip",
+            "model/stl",
+            "model/3mf",
+            "application/octet-stream",
+            ".stl",
+            ".3mf"
+          ]
+        }
+      ]
+    }
+  }
+}

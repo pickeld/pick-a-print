@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from library.models import Collection, ModelFile, SavedModel, ScanJob, Tag
+from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag
 
 
 @admin.register(ModelFile)
@@ -37,3 +37,13 @@ class ScanJobAdmin(admin.ModelAdmin):
     list_filter = ["stage", "created_at"]
     search_fields = ["title", "job_id", "user__username"]
     readonly_fields = ["job_id", "created_at", "updated_at"]
+
+
+@admin.register(SiteConfig)
+class SiteConfigAdmin(admin.ModelAdmin):
+    list_display = ["jetson_enabled", "jetson_host", "has_health_token", "last_test_ok", "last_test_at"]
+    readonly_fields = ["last_test_at", "last_test_ok", "last_test_message"]
+
+    @admin.display(boolean=True, description="Health token set")
+    def has_health_token(self, obj: SiteConfig) -> bool:
+        return bool(obj.jetson_health_token)

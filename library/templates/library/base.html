@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}Pick-a-Print{% endblock %}</title>
+  {% include "library/partials/pwa_head.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,6 +16,7 @@
 <body
   data-scan-upload-url="{% url 'scan_list' %}"
   data-model-upload-url="{% url 'model_save' %}"
+  data-share-url="{% url 'share_target' %}"
 >
   <div class="app-shell">
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
@@ -83,6 +85,7 @@
           <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search...">
         </form>
         <div class="topbar-actions">
+          <button type="button" class="btn btn-secondary pwa-install-btn" id="pwa-install-btn" hidden aria-label="Install app">📲 Install</button>
           <a href="{% url 'scan_list' %}" class="btn btn-secondary topbar-actions-scan">📷 Scan</a>
           <a href="{% url 'model_save' %}" class="btn btn-primary">+ Save</a>
         </div>
@@ -107,10 +110,17 @@
       <div class="file-drop-icon">⬇</div>
       <p class="file-drop-status">Drop files to upload</p>
       <p class="file-drop-hint">photos, video, zip → scan · stl, 3mf → library</p>
+      <div id="file-drop-progress" class="upload-progress" hidden>
+        <div class="progress-track progress-track--live" aria-hidden="true">
+          <div id="file-drop-progress-bar" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <p id="file-drop-progress-label" class="upload-progress-label">Uploading…</p>
+      </div>
     </div>
   </div>
 
   <script src="{% static 'library/js/app.js' %}"></script>
+  <script src="{% static 'library/js/pwa.js' %}"></script>
   <script src="{% static 'library/js/file_drop.js' %}"></script>
 </body>
 </html>

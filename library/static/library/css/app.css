@@ -233,6 +233,76 @@ img {
   display: flex;
   gap: 0.5rem;
   margin-left: auto;
+  align-items: center;
+}
+
+.pwa-install-btn[hidden] {
+  display: none !important;
+}
+
+.pwa-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.pwa-installed-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.pwa-installed-badge[hidden] {
+  display: none !important;
+}
+
+.pwa-status {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.pwa-status[data-kind="ok"] {
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+
+.pwa-status[data-kind="warn"] {
+  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--accent-hover);
+}
+
+.pwa-status[data-kind="error"] {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.pwa-status[hidden] {
+  display: none !important;
+}
+
+.pwa-steps,
+.pwa-share-types {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  padding-left: 1.2rem;
+  margin: 0;
+}
+
+.pwa-share-types {
+  list-style: disc;
 }
 
 .content {
@@ -1538,6 +1608,31 @@ img {
   margin: 0.5rem 0 0;
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.upload-progress {
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.upload-progress-label {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.file-drop-panel .upload-progress {
+  margin-top: 1rem;
+}
+
+.progress-track--indeterminate .progress-fill {
+  width: 35% !important;
+  animation: upload-progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes upload-progress-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
 }
 
 /* --- Responsive: tablet & mobile --- */

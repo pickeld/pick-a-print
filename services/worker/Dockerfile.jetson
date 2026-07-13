@@ -71,9 +71,10 @@ RUN pip3 install --no-cache-dir -r requirements-photogrammetry.txt
 
 COPY app/ /app/app/
 COPY scan.py /app/scan.py
+COPY scripts/jetson_health_server.py /app/jetson_health_server.py
 
 RUN mkdir -p /data/jobs /input /output
 
 VOLUME ["/data/jobs", "/input", "/output"]
 
-CMD ["celery", "-A", "app.workers.celery_app", "worker", "-l", "info", "-Q", "celery", "--concurrency=1"]
+CMD ["sh", "-c", "python3 /app/jetson_health_server.py & exec celery -A app.workers.celery_app worker -l info -Q celery --concurrency=1"]
