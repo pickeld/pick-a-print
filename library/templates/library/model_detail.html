@@ -79,11 +79,15 @@
   <section class="model-parts-section" aria-label="Model parts">
     {% if preview_file %}
     <div class="part-main-viewer" id="part-main-viewer" data-active-file-id="{{ preview_file.pk }}">
-      <div class="part-main-viewer-header">
-        <h3 class="part-main-viewer-title" id="part-main-viewer-title">{{ preview_file.original_name }}</h3>
-        <span class="text-muted part-main-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>
-      </div>
-      <div class="scan-viewer-wrap part-main-viewer-wrap">
+      <div class="part-main-viewer-card">
+        <div class="part-main-viewer-header">
+          <div class="part-main-viewer-label">
+            <span class="part-main-viewer-kicker">Main preview</span>
+            <h3 class="part-main-viewer-title" id="part-main-viewer-title">{{ preview_file.original_name }}</h3>
+          </div>
+          <span class="text-muted part-main-viewer-hint">Drag · Scroll · Shift+drag to pan</span>
+        </div>
+        <div class="scan-viewer-wrap part-main-viewer-wrap">
         <div class="scan-viewer-loading" id="part-main-viewer-loading">
           <div class="viewer-load-panel">
             <p class="viewer-load-label">Preparing preview</p>
@@ -109,6 +113,7 @@
           src="{% url 'model_preview' pk=model.pk file_id=preview_file.pk %}?inline=1"
           alt="{{ preview_file.original_name }} 3D preview"
         ></model-viewer>
+        </div>
       </div>
     </div>
     {% endif %}
@@ -118,21 +123,25 @@
         {% csrf_token %}
         <input type="hidden" name="bulk_delete_files" value="1">
 
-        <h3 class="parts-bulk-heading">Parts</h3>
+        <div class="parts-bulk-left">
+          <h3 class="parts-bulk-heading">Parts</h3>
+          <span class="parts-count-badge">{{ model_files|length }}</span>
+        </div>
 
-        <label class="bulk-select-all">
-          <input type="checkbox" id="select-all-parts" aria-label="Select all parts">
-          <span>Select all</span>
-        </label>
-
-        <span class="bulk-selection-count" id="parts-selection-count" hidden>
-          <span id="parts-selection-number">0</span> selected
-        </span>
+        <div class="parts-bulk-center">
+          <label class="parts-select-pill">
+            <input type="checkbox" id="select-all-parts" aria-label="Select all parts">
+            <span>Select all</span>
+          </label>
+          <span class="parts-selection-pill" id="parts-selection-count" hidden>
+            <span id="parts-selection-number">0</span> selected
+          </span>
+        </div>
 
         <div class="parts-bulk-actions">
           <button
             type="submit"
-            class="btn btn-secondary parts-bulk-btn"
+            class="btn parts-bulk-btn parts-bulk-btn--download"
             id="parts-download-btn"
             formaction="{% url 'model_files_download' pk=model.pk %}"
             formmethod="post"
@@ -144,11 +153,11 @@
               <path d="m7 10 5 5 5-5"></path>
               <path d="M5 21h14"></path>
             </svg>
-            Download selected
+            Download
           </button>
           <button
             type="submit"
-            class="btn btn-danger parts-bulk-btn"
+            class="btn parts-bulk-btn parts-bulk-btn--delete"
             id="parts-delete-btn"
             disabled
             title="Delete selected parts"
@@ -161,7 +170,7 @@
               <path d="M14 11v6"></path>
               <path d="M5 6l1 14h12l1-14"></path>
             </svg>
-            Delete selected
+            Delete
           </button>
         </div>
       </form>
@@ -215,35 +224,33 @@
 
           <div class="part-card-body">
             <h3 class="part-card-title" title="{{ f.original_name }}">{{ f.original_name }}</h3>
-            <ul class="part-card-stats">
-              <li><span class="label">Size</span> <span>{{ f.file_size|filesizeformat }}</span></li>
-              <li><span class="label">Type</span> <span>{{ f.file_type|upper }}</span></li>
+            <div class="part-card-meta">
+              <span class="part-meta-chip part-meta-chip--type">{{ f.file_type|upper }}</span>
+              <span class="part-meta-chip">{{ f.file_size|filesizeformat }}</span>
               {% if f.triangle_count %}
-                <li><span class="label">Triangles</span> <span>{{ f.triangle_count }}</span></li>
+                <span class="part-meta-chip">{{ f.triangle_count }} tri</span>
               {% endif %}
               {% if f.dimension_x %}
-                <li><span class="label">Dimensions</span> <span>{{ f.dimension_x|floatformat:1 }} × {{ f.dimension_y|floatformat:1 }} × {{ f.dimension_z|floatformat:1 }} mm</span></li>
+                <span class="part-meta-chip">{{ f.dimension_x|floatformat:0 }}×{{ f.dimension_y|floatformat:0 }}×{{ f.dimension_z|floatformat:0 }} mm</span>
               {% endif %}
               {% if f.volume_cm3 %}
-                <li><span class="label">Volume</span> <span>~{{ f.volume_cm3|floatformat:1 }} cm³</span></li>
+                <span class="part-meta-chip">~{{ f.volume_cm3|floatformat:1 }} cm³</span>
               {% endif %}
-            </ul>
-            {% if f.file %}
-            <div class="part-card-actions">
-              <a
-                href="{{ f.file.url }}"
-                class="btn btn-icon btn-secondary btn-sm part-card-download"
-                download="{{ f.original_name }}"
-                title="Download {{ f.original_name }}"
-                aria-label="Download {{ f.original_name }}"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 3v12"></path>
-                  <path d="m7 10 5 5 5-5"></path>
-                  <path d="M5 21h14"></path>
-                </svg>
-              </a>
             </div>
+            {% if f.file %}
+            <a
+              href="{{ f.file.url }}"
+              class="part-card-download-link"
+              download="{{ f.original_name }}"
+              title="Download {{ f.original_name }}"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12"></path>
+                <path d="m7 10 5 5 5-5"></path>
+                <path d="M5 21h14"></path>
+              </svg>
+              Download file
+            </a>
             {% endif %}
           </div>
         </article>

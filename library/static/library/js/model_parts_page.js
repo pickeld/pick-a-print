@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   grid.addEventListener("click", (event) => {
-    if (event.target.closest(".part-card-download") || event.target.closest(".part-card-check")) return;
+    if (event.target.closest(".part-card-download-link") || event.target.closest(".part-card-check")) return;
 
     const previewCard = event.target.closest(".part-card--previewable");
     if (previewCard) {
