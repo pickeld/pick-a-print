@@ -77,6 +77,42 @@
   </div>
   {% elif model_files %}
   <section class="model-parts-section" aria-label="Model parts">
+    {% if preview_file %}
+    <div class="part-main-viewer" id="part-main-viewer" data-active-file-id="{{ preview_file.pk }}">
+      <div class="part-main-viewer-header">
+        <h3 class="part-main-viewer-title" id="part-main-viewer-title">{{ preview_file.original_name }}</h3>
+        <span class="text-muted part-main-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>
+      </div>
+      <div class="scan-viewer-wrap part-main-viewer-wrap">
+        <div class="scan-viewer-loading" id="part-main-viewer-loading">
+          <div class="viewer-load-panel">
+            <p class="viewer-load-label">Preparing preview</p>
+            <div class="progress-track viewer-load-track" aria-hidden="true">
+              <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
+            </div>
+            <p class="viewer-load-percent">0%</p>
+          </div>
+        </div>
+        <div class="scan-viewer-error hidden" id="part-main-viewer-error">Could not load the 3D preview.</div>
+        <model-viewer
+          id="part-main-viewer-canvas"
+          camera-controls
+          touch-action="pan-y"
+          interaction-prompt="auto"
+          shadow-intensity="0.4"
+          exposure="1"
+          auto-rotate
+          rotation-per-second="12deg"
+          camera-orbit="auto auto auto"
+          min-camera-orbit="auto auto 10%"
+          max-camera-orbit="auto auto 400%"
+          src="{% url 'model_preview' pk=model.pk file_id=preview_file.pk %}?inline=1"
+          alt="{{ preview_file.original_name }} 3D preview"
+        ></model-viewer>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="model-parts-page" id="model-parts-page">
       <div class="model-parts-toolbar">
         <button

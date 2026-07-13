@@ -6,6 +6,8 @@ import requests
 from django.conf import settings
 
 from library.download_providers.base import RemoteDownloadFile
+from library.downloads import DownloadError
+from library.models import SavedModel
 from library.provider_credentials import bambu_lab_token
 
 BAMBU_API = "https://api.bambulab.com"
