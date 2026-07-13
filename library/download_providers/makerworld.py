@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import re
 
-import requests
-from django.conf import settings
-
-from library.download_providers.base import RemoteDownloadFile
+from library.provider_credentials import bambu_lab_token
 from library.downloads import DownloadError
 from library.models import SavedModel
 
@@ -19,11 +16,11 @@ class MakerWorldDownloadProvider:
         return (model.source_site or "").lower() in self.site_names
 
     def list_files(self, model: SavedModel) -> list[RemoteDownloadFile]:
-        token = getattr(settings, "BAMBU_LAB_TOKEN", "") or ""
+        token = bambu_lab_token()
         if not token:
             raise DownloadError(
                 "MakerWorld downloads need a Bambu Lab token. "
-                "Set BAMBU_LAB_TOKEN in your environment (MakerWorld browser cookie named token)."
+                "Add it in Settings → Auto-download, or set BAMBU_LAB_TOKEN in your environment."
             )
 
         design_id = model.external_id or _extract_design_id(model.source_url or "")

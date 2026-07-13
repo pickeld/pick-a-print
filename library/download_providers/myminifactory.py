@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import re
 
-import requests
-from django.conf import settings
-
-from library.download_providers.base import RemoteDownloadFile
+from library.provider_credentials import myminifactory_api_key
 from library.downloads import DownloadError, supported_remote_filename
 from library.models import SavedModel
 
@@ -20,11 +17,11 @@ class MyMiniFactoryDownloadProvider:
         return site in self.site_names or "myminifactory" in site
 
     def list_files(self, model: SavedModel) -> list[RemoteDownloadFile]:
-        api_key = getattr(settings, "MYMINIFACTORY_API_KEY", "") or ""
+        api_key = myminifactory_api_key()
         if not api_key:
             raise DownloadError(
                 "MyMiniFactory downloads need an API key. "
-                "Request one from myminifactory.com and set MYMINIFACTORY_API_KEY."
+                "Add it in Settings → Auto-download, or set MYMINIFACTORY_API_KEY in your environment."
             )
 
         object_id = model.external_id or _extract_object_id(model.source_url or "")

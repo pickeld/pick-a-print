@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import re
 
-import requests
-from django.conf import settings
-
-from library.download_providers.base import RemoteDownloadFile
+from library.provider_credentials import thingiverse_api_token
 from library.downloads import DownloadError, supported_remote_filename
 from library.models import SavedModel
 
@@ -19,11 +16,11 @@ class ThingiverseDownloadProvider:
         return (model.source_site or "").lower() in self.site_names
 
     def list_files(self, model: SavedModel) -> list[RemoteDownloadFile]:
-        token = getattr(settings, "THINGIVERSE_API_TOKEN", "") or ""
+        token = thingiverse_api_token()
         if not token:
             raise DownloadError(
                 "Thingiverse downloads need an API token. "
-                "Create an app at thingiverse.com/apps and set THINGIVERSE_API_TOKEN."
+                "Add it in Settings → Auto-download, or set THINGIVERSE_API_TOKEN in your environment."
             )
 
         thing_id = model.external_id or _extract_thing_id(model.source_url or "")
