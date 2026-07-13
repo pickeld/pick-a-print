@@ -151,12 +151,13 @@ SCAN_MAX_UPLOAD_MB = int(os.getenv("SCAN_MAX_UPLOAD_MB", "200"))
 CLOUDFLARE_PROXY = os.getenv("CLOUDFLARE_PROXY", "true").lower() in ("true", "1", "yes")
 CLOUDFLARE_MAX_UPLOAD_MB = int(os.getenv("CLOUDFLARE_MAX_UPLOAD_MB", "100"))
 # Cloudflare rejects proxied request bodies above ~100 MB before they reach origin.
+CHUNK_UPLOAD_SIZE_MB = int(os.getenv("CHUNK_UPLOAD_SIZE_MB", "48"))
 EFFECTIVE_SCAN_MAX_UPLOAD_MB = (
     min(SCAN_MAX_UPLOAD_MB, max(1, CLOUDFLARE_MAX_UPLOAD_MB - 5))
     if CLOUDFLARE_PROXY
     else SCAN_MAX_UPLOAD_MB
 )
-_upload_limit_mb = max(MAX_UPLOAD_SIZE_MB, EFFECTIVE_SCAN_MAX_UPLOAD_MB)
+_upload_limit_mb = max(MAX_UPLOAD_SIZE_MB, EFFECTIVE_SCAN_MAX_UPLOAD_MB, CHUNK_UPLOAD_SIZE_MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = _upload_limit_mb * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = _upload_limit_mb * 1024 * 1024
 

@@ -28,6 +28,12 @@ from library.scan_services import (
 from app.pipeline.workspace import JobWorkspace
 from library.pwa_manifest import build_manifest
 from library.pwa_share import process_share_import
+from library.chunk_upload import (
+    AssembledScanFile,
+    cleanup_chunk_upload,
+    complete_scan_chunk_upload,
+    save_scan_chunk,
+)
 from library.scan_worker import (
     ScanWorkerTestResult,
     count_celery_scan_workers,
@@ -530,6 +536,68 @@ def scan_list_view(request):
             "scan_worker_status": scan_worker_status(),
         },
     )
+
+
+@login_required
+@require_http_methods(["POST"])
+def scan_chunk_upload_view(request):
+    try:
+        upload_id = str(request.POST.get("upload_id", "")).strip()
+        chunk_index = int(request.POST.get("chunk_index", -1))
+        total_chunks = int(request.POST.get("total_chunks", 0))
+        filename = str(request.POST.get("filename", "")).strip()
+        chunk = request.FILES.get("chunk")
+        if not chunk:
+            return JsonResponse({"error": "Missing chunk data."}, status=400)
+        save_scan_chunk(
+            user_id=request.user.id,
+            upload_id=upload_id,
+            chunk_index=chunk_index,
+            total_chunks=total_chunks,
+            filename=filename,
+            chunk_file=chunk,
+        )
+    except (ScanError, ValueError, TypeError) as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    return JsonResponse({"ok": True, "chunk_index": chunk_index})
+
+
+@login_required
+@require_http_methods(["POST"])
+def scan_chunk_complete_view(request):
+    upload_id = str(request.POST.get("upload_id", "")).strip()
+    title = str(request.POST.get("title", "")).strip()
+    tag_names_raw = str(request.POST.get("tag_names", "")).strip()
+    tag_names = [t.strip() for t in tag_names_raw.split(",") if t.strip()]
+    collection_ids = []
+    for value in request.POST.getlist("collections"):
+        try:
+            collection_ids.append(int(value))
+        except ValueError:
+            continue
+
+    try:
+        assembled_path = complete_scan_chunk_upload(
+            user_id=request.user.id,
+            upload_id=upload_id,
+            title=title,
+            tag_names=tag_names or None,
+            collection_ids=collection_ids or None,
+        )
+        scan_job = create_scan_job(
+            user=request.user,
+            files=[AssembledScanFile(assembled_path)],
+            title=title or None,
+            tag_names=tag_names or None,
+            collection_ids=collection_ids or None,
+            bypass_cloudflare_limit=True,
+        )
+    except ScanError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    finally:
+        cleanup_chunk_upload(request.user.id, upload_id)
+
+    return JsonResponse({"redirect": reverse("scan_job", kwargs={"job_id": scan_job.job_id})})
 
 
 @login_required

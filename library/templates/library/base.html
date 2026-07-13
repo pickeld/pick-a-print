@@ -18,6 +18,10 @@
   data-model-upload-url="{% url 'model_save' %}"
   data-share-url="{% url 'share_target' %}"
   data-scan-max-upload-mb="{{ scan_max_upload_mb }}"
+  data-scan-total-max-upload-mb="{{ scan_total_max_upload_mb }}"
+  data-chunk-upload-mb="{{ chunk_upload_size_mb }}"
+  data-scan-chunk-url="{% url 'scan_chunk_upload' %}"
+  data-scan-chunk-complete-url="{% url 'scan_chunk_complete' %}"
   data-cloudflare-proxy="{% if cloudflare_proxy %}1{% else %}0{% endif %}"
 >
   <div class="app-shell">

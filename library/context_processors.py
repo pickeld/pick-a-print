@@ -19,5 +19,7 @@ def upload_limits(request):
 
     return {
         "scan_max_upload_mb": django_settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB,
+        "scan_total_max_upload_mb": django_settings.SCAN_MAX_UPLOAD_MB,
+        "chunk_upload_size_mb": django_settings.CHUNK_UPLOAD_SIZE_MB,
         "cloudflare_proxy": django_settings.CLOUDFLARE_PROXY,
     }

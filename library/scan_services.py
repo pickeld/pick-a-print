@@ -136,6 +136,7 @@ def create_scan_job(
     title: str | None = None,
     tag_names: list[str] | None = None,
     collection_ids: list[int] | None = None,
+    bypass_cloudflare_limit: bool = False,
 ) -> ScanJob:
     if not files:
         raise ScanError("Upload at least one photo, video, or .zip archive.")
@@ -146,15 +147,19 @@ def create_scan_job(
 
     _validate_upload_files(files)
 
-    max_bytes = settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB * 1024 * 1024
+    limit_mb = (
+        settings.SCAN_MAX_UPLOAD_MB
+        if bypass_cloudflare_limit
+        else settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB
+    )
+    max_bytes = limit_mb * 1024 * 1024
     total_size = sum(getattr(f, "size", 0) or 0 for f in files)
     if total_size > max_bytes:
         raise ScanError(
-            f"Total upload exceeds {settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB} MB limit."
+            f"Total upload exceeds {limit_mb} MB limit."
             + (
-                " Cloudflare caps uploads at ~100 MB when the site is proxied — use a smaller file, "
-                "a .zip of photos instead of a long video, or upload from your home network."
-                if settings.CLOUDFLARE_PROXY
+                " Cloudflare caps single uploads at ~100 MB — large videos are uploaded in chunks automatically."
+                if settings.CLOUDFLARE_PROXY and not bypass_cloudflare_limit
                 else ""
             )
         )

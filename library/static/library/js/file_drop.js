@@ -12,7 +12,11 @@
 
   const scanUrl = body.dataset.scanUploadUrl;
   const modelUrl = body.dataset.modelUploadUrl;
+  const scanChunkUrl = body.dataset.scanChunkUrl;
+  const scanChunkCompleteUrl = body.dataset.scanChunkCompleteUrl;
   const maxScanBytes = (parseInt(body.dataset.scanMaxUploadMb, 10) || 95) * 1024 * 1024;
+  const totalMaxScanBytes = (parseInt(body.dataset.scanTotalMaxUploadMb, 10) || 200) * 1024 * 1024;
+  const chunkUploadBytes = (parseInt(body.dataset.chunkUploadMb, 10) || 48) * 1024 * 1024;
   const cloudflareProxy = body.dataset.cloudflareProxy === "1";
   const statusEl = overlay.querySelector(".file-drop-status");
   const hintEl = overlay.querySelector(".file-drop-hint");
@@ -68,19 +72,37 @@
     return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
   }
 
+  function canChunkUpload(files) {
+    return (
+      cloudflareProxy
+      && scanChunkUrl
+      && scanChunkCompleteUrl
+      && files.length === 1
+      && files[0].size > maxScanBytes
+      && files[0].size <= totalMaxScanBytes
+    );
+  }
+
   function scanSizeError(files) {
     const total = files.reduce((sum, file) => sum + (file.size || 0), 0);
-    if (total <= maxScanBytes) return null;
-    const maxMb = Math.round(maxScanBytes / (1024 * 1024));
+    if (canChunkUpload(files)) return null;
+
+    const hardLimit = cloudflareProxy ? totalMaxScanBytes : maxScanBytes;
+    if (total <= hardLimit) return null;
+
+    const maxMb = Math.round(hardLimit / (1024 * 1024));
+    if (cloudflareProxy && files.length > 1 && total > maxScanBytes) {
+      return `Total ${formatBytes(total)} is too large for one request. Upload a large video by itself, or stay under ${maxMb} MB total.`;
+    }
     if (cloudflareProxy) {
-      return `Total ${formatBytes(total)} exceeds ${maxMb} MB. Cloudflare blocks proxied uploads over ~100 MB — use a smaller video, a .zip of photos, or upload on your home network.`;
+      return `Total ${formatBytes(total)} exceeds ${maxMb} MB.`;
     }
     return `Total ${formatBytes(total)} exceeds the ${maxMb} MB upload limit.`;
   }
 
   function payloadTooLargeMessage() {
     if (cloudflareProxy) {
-      return "Upload blocked by Cloudflare (max ~100 MB). Use a smaller file or upload on your home network.";
+      return "Upload blocked by Cloudflare (max ~100 MB per piece). Retrying in chunks should fix this — hard-refresh the page and try again.";
     }
     return "Upload too large for the server.";
   }
@@ -179,9 +201,12 @@
       const xhr = new XMLHttpRequest();
       const formData = new FormData();
       formData.append("csrfmiddlewaretoken", getCsrfToken());
+      const chunkFilename = fields.filename || "chunk.bin";
       for (const [key, value] of Object.entries(fields)) {
         if (Array.isArray(value)) {
           value.forEach((item) => formData.append(key, item));
+        } else if (value instanceof Blob) {
+          formData.append(key, value, key === "chunk" ? chunkFilename : "blob.bin");
         } else if (value !== undefined && value !== null) {
           formData.append(key, value);
         }
@@ -229,6 +254,7 @@
         throw new Error(data.error || `${fallbackLabel} failed`);
       }
       if (data.redirect) return data.redirect;
+      if (data.ok) return null;
       throw new Error(data.error || `${fallbackLabel} failed`);
     }
     if (result.status === 413) {
@@ -273,7 +299,58 @@
     return lastUrl;
   }
 
-  async function uploadScan(files, progressUi) {
+  async function uploadScanChunked(file, progressUi, extraFields = {}) {
+    const uploadId = crypto.randomUUID();
+    const totalChunks = Math.ceil(file.size / chunkUploadBytes);
+
+    for (let index = 0; index < totalChunks; index += 1) {
+      const start = index * chunkUploadBytes;
+      const end = Math.min(file.size, start + chunkUploadBytes);
+      const blob = file.slice(start, end);
+      const partLabel = `Uploading ${file.name} · part ${index + 1}/${totalChunks}`;
+      setStatus(partLabel);
+      if (hintEl) hintEl.textContent = `${formatBytes(file.size)} total · ${Math.round(chunkUploadBytes / (1024 * 1024))} MB pieces`;
+
+      const result = await postFormXhr(
+        scanChunkUrl,
+        {
+          upload_id: uploadId,
+          chunk_index: String(index),
+          total_chunks: String(totalChunks),
+          filename: file.name,
+          chunk: blob,
+        },
+        {
+          onProgress: (loaded, total) => {
+            const overallLoaded = start + (loaded || 0);
+            updateProgressUI(
+              progressUi,
+              overallLoaded,
+              file.size,
+              total
+                ? `${partLabel} · ${Math.round((overallLoaded / file.size) * 100)}%`
+                : partLabel,
+            );
+          },
+        },
+      );
+      readUploadResponse(result, scanChunkUrl, "Chunk upload");
+    }
+
+    setStatus("Assembling and starting scan…");
+    if (hintEl) hintEl.textContent = file.name;
+    const result = await postFormXhr(scanChunkCompleteUrl, {
+      upload_id: uploadId,
+      ...extraFields,
+    });
+    return readUploadResponse(result, scanChunkCompleteUrl, "Scan upload");
+  }
+
+  async function uploadScan(files, progressUi, extraFields = {}) {
+    if (canChunkUpload(files)) {
+      return uploadScanChunked(files[0], progressUi, extraFields);
+    }
+
     const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
     setStatus(`Starting scan with ${files.length} file${files.length === 1 ? "" : "s"}…`);
     if (hintEl) {
@@ -281,7 +358,7 @@
     }
     const result = await postFormXhr(
       scanUrl,
-      { files, file_drop: "1" },
+      { files, file_drop: "1", ...extraFields },
       {
         onProgress: (loaded, total) => {
           updateProgressUI(
@@ -396,7 +473,7 @@
       if (scanProgressLabel) scanProgressLabel.style.color = "";
       updateProgressUI(progressUi, null, null, "Preparing upload…");
 
-      const fields = { files, file_drop: "1" };
+      const extraFields = {};
       for (const element of scanForm.elements) {
         if (!element.name || element === fileInput) continue;
         if (element.name === "csrfmiddlewaretoken") continue;
@@ -404,28 +481,16 @@
         if ((element.type === "checkbox" || element.type === "radio") && !element.checked) continue;
         if (element.type === "select-multiple") {
           [...element.selectedOptions].forEach((option) => {
-            fields[element.name] = fields[element.name] || [];
-            fields[element.name].push(option.value);
+            extraFields[element.name] = extraFields[element.name] || [];
+            extraFields[element.name].push(option.value);
           });
           continue;
         }
-        fields[element.name] = element.value;
+        extraFields[element.name] = element.value;
       }
 
       try {
-        const result = await postFormXhr(scanUrl, fields, {
-          onProgress: (loaded, total) => {
-            updateProgressUI(
-              progressUi,
-              loaded,
-              total,
-              total
-                ? `Uploading · ${Math.round((loaded / total) * 100)}% · ${formatBytes(loaded)} / ${formatBytes(total)}`
-                : "Uploading…",
-            );
-          },
-        });
-        const redirectUrl = readUploadResponse(result, scanUrl, "Scan upload");
+        const redirectUrl = await uploadScan(files, progressUi, extraFields);
         updateProgressUI(progressUi, 1, 1, "Starting scan…");
         window.location.href = redirectUrl;
       } catch (error) {
