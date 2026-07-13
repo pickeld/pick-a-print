@@ -15,6 +15,7 @@ urlpatterns = [
     path("settings/about-checks/", web_views.about_checks_view, name="about_checks"),
     path("settings/scan-worker-check/", web_views.scan_worker_check_view, name="scan_worker_check"),
     path("settings/scan-worker-save/", web_views.scan_worker_save_view, name="scan_worker_save"),
+    path("settings/download-integrations-save/", web_views.download_integrations_save_view, name="download_integrations_save"),
     path("models/<int:pk>/", web_views.model_detail_view, name="model_detail"),
     path("models/<int:pk>/preview/<int:file_id>/", web_views.model_preview_view, name="model_preview"),
     path("models/<int:pk>/files/download/", web_views.model_files_download_view, name="model_files_download"),

@@ -44,7 +44,7 @@ from library.scan_worker import (
     validate_jetson_health_token,
     validate_jetson_host,
 )
-from library.services import ModelSaveError, save_model_from_upload, save_model_from_url
+from library.provider_credentials import bambu_lab_token, myminifactory_api_key, thingiverse_api_token
 
 
 def _parse_scan_worker_payload(request) -> dict:
@@ -75,6 +75,43 @@ def _apply_scan_worker_fields(config: SiteConfig, payload: dict) -> str | None:
             return host_error
         return validate_jetson_health_token(config.jetson_health_token)
     return None
+
+
+def _apply_download_integration_fields(config: SiteConfig, payload: dict) -> None:
+    token_fields = (
+        "thingiverse_api_token",
+        "bambu_lab_token",
+        "myminifactory_api_key",
+    )
+    for field_name in token_fields:
+        if field_name not in payload:
+            continue
+        token_value = str(payload.get(field_name, "")).strip()
+        if token_value:
+            setattr(config, field_name, token_value)
+
+
+def _download_integrations_status() -> list[dict]:
+    return [
+        {"site": "Printables", "status": "ready", "note": "Works out of the box"},
+        {"site": "Thangs", "status": "ready", "note": "May be blocked by Cloudflare from some servers"},
+        {
+            "site": "MakerWorld",
+            "status": "configured" if bambu_lab_token() else "needs_token",
+            "note": "Bambu Lab token from MakerWorld browser cookie (token)",
+        },
+        {
+            "site": "Thingiverse",
+            "status": "configured" if thingiverse_api_token() else "needs_token",
+            "note": "API token from thingiverse.com/apps",
+        },
+        {
+            "site": "MyMiniFactory",
+            "status": "configured" if myminifactory_api_key() else "needs_token",
+            "note": "API key from myminifactory.com",
+        },
+        {"site": "Cults3D", "status": "unsupported", "note": "Metadata only — Cults does not expose file downloads via API"},
+    ]
 
 
 def _user_collections(user):
@@ -298,32 +335,11 @@ def settings_view(request):
     token, _ = Token.objects.get_or_create(user=request.user)
     api_base = request.build_absolute_uri("/api").rstrip("/")
 
-    from django.conf import settings as django_settings
-
     context = {
         "api_token": token.key,
         "api_base": api_base,
         "active_tab": active_tab,
-        "download_integrations": [
-            {"site": "Printables", "status": "ready", "note": "Works out of the box"},
-            {"site": "Thangs", "status": "ready", "note": "May be blocked by Cloudflare from some servers"},
-            {
-                "site": "MakerWorld",
-                "status": "configured" if django_settings.BAMBU_LAB_TOKEN else "needs_token",
-                "note": "Set BAMBU_LAB_TOKEN (MakerWorld cookie: token)",
-            },
-            {
-                "site": "Thingiverse",
-                "status": "configured" if django_settings.THINGIVERSE_API_TOKEN else "needs_token",
-                "note": "Set THINGIVERSE_API_TOKEN from thingiverse.com/apps",
-            },
-            {
-                "site": "MyMiniFactory",
-                "status": "configured" if django_settings.MYMINIFACTORY_API_KEY else "needs_token",
-                "note": "Set MYMINIFACTORY_API_KEY from myminifactory.com API",
-            },
-            {"site": "Cults3D", "status": "unsupported", "note": "Metadata only — Cults does not expose file downloads via API"},
-        ],
+        "download_integrations": _download_integrations_status(),
     }
 
     from library.dependency_info import CACHE_TTL_SECONDS, get_cached_updates_available, peek_cached_about
@@ -339,6 +355,14 @@ def settings_view(request):
         context["tools_manifest"] = PIPELINE_TOOLS
         context["image_versions"] = _load_image_versions()
 
+    if active_tab == "downloads":
+        config = SiteConfig.get()
+        context["download_config"] = {
+            "thingiverse_api_token": bool(config.thingiverse_api_token),
+            "bambu_lab_token": bool(config.bambu_lab_token),
+            "myminifactory_api_key": bool(config.myminifactory_api_key),
+        }
+
     if active_tab == "scan":
         config = SiteConfig.get()
         context["scan_worker_config"] = config
@@ -346,6 +370,27 @@ def settings_view(request):
         context["scan_worker_status_json"] = json.dumps(context["scan_worker_status"])
 
     return render(request, "library/settings.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def download_integrations_save_view(request):
+    config = SiteConfig.get()
+    payload = _parse_scan_worker_payload(request)
+    _apply_download_integration_fields(config, payload)
+    config.save()
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "Download provider settings saved.",
+            "integrations": _download_integrations_status(),
+            "saved": {
+                "thingiverse_api_token": bool(config.thingiverse_api_token),
+                "bambu_lab_token": bool(config.bambu_lab_token),
+                "myminifactory_api_key": bool(config.myminifactory_api_key),
+            },
+        }
+    )
 
 
 @login_required

@@ -186,55 +186,24 @@
       <div class="model-parts-grid" id="model-parts-grid">
         {% for f in model_files %}
         <article
-          class="part-card part-card--selectable{% if f.file_type == 'stl' or f.file_type == '3mf' %} part-card--previewable{% endif %}"
+          class="part-card part-card--selectable{% if f.file_type == 'stl' or f.file_type == '3mf' %} part-card--previewable{% if f.pk == preview_file.pk %} part-card--active{% endif %}{% endif %}"
           data-file-id="{{ f.pk }}"
+          {% if f.file_type == "stl" or f.file_type == "3mf" %}
+          data-preview-url="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
+          data-file-name="{{ f.original_name }}"
+          {% endif %}
         >
           <label class="part-card-check" aria-label="Select {{ f.original_name }}">
             <input type="checkbox" name="file_ids" value="{{ f.pk }}" form="parts-bulk-form">
           </label>
 
-          <div class="part-card-preview">
+          <div class="part-card-preview{% if f.file_type == 'stl' or f.file_type == '3mf' %} part-card-preview--static{% endif %}">
             {% if f.file_type == "stl" or f.file_type == "3mf" %}
-            <button
-              type="button"
-              class="part-card-expand"
-              aria-label="Expand 3D preview"
-              title="Expand preview"
-              data-preview-url="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
-              data-file-name="{{ f.original_name }}"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M15 3h6v6"></path>
-                <path d="m21 3-7 7"></path>
-                <path d="m3 21 7-7"></path>
-                <path d="M9 21H3v-6"></path>
-              </svg>
-            </button>
-            <div class="part-card-loading">
-              <div class="viewer-load-panel">
-                <p class="viewer-load-label">Loading preview</p>
-                <div class="progress-track viewer-load-track" aria-hidden="true">
-                  <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
-                </div>
-              </div>
-            </div>
-            <div class="part-card-error hidden">Preview unavailable</div>
-            <model-viewer
-              class="part-card-viewer"
-              loading="lazy"
-              camera-controls
-              touch-action="pan-y"
-              interaction-prompt="none"
-              shadow-intensity="0.35"
-              exposure="1"
-              auto-rotate
-              rotation-per-second="10deg"
-              camera-orbit="45deg 75deg auto"
-              min-camera-orbit="auto auto 50%"
-              max-camera-orbit="auto auto 200%"
-              src="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
-              alt="{{ f.original_name }} 3D preview"
-            ></model-viewer>
+            <svg class="part-card-thumb-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3 2 8.5 12 14l10-5.5L12 3Z"></path>
+              <path d="M2 8.5v7L12 21l10-5.5v-7"></path>
+              <path d="M12 14v7"></path>
+            </svg>
             {% else %}
             <div class="part-card-placeholder">
               <span class="part-card-placeholder-icon">📄</span>
@@ -281,48 +250,6 @@
       </div>
     </div>
   </section>
-
-  <div class="part-preview-modal hidden" id="part-preview-modal" role="dialog" aria-modal="true" aria-labelledby="part-preview-modal-title">
-    <div class="part-preview-modal-backdrop" data-close-modal></div>
-    <div class="part-preview-modal-panel">
-      <div class="part-preview-modal-header">
-        <h3 id="part-preview-modal-title" class="part-preview-modal-title"></h3>
-        <button type="button" class="btn btn-icon btn-ghost part-preview-modal-close" id="part-preview-modal-close" aria-label="Close preview">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 6 6 18"></path>
-            <path d="m6 6 12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div class="part-preview-modal-body">
-        <div class="scan-viewer-loading" id="part-preview-modal-loading">
-          <div class="viewer-load-panel">
-            <p class="viewer-load-label">Loading preview</p>
-            <div class="progress-track viewer-load-track" aria-hidden="true">
-              <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
-            </div>
-            <p class="viewer-load-percent">0%</p>
-          </div>
-        </div>
-        <div class="scan-viewer-error hidden" id="part-preview-modal-error">Could not load the 3D preview.</div>
-        <model-viewer
-          id="part-preview-modal-viewer"
-          camera-controls
-          touch-action="pan-y"
-          interaction-prompt="auto"
-          shadow-intensity="0.4"
-          exposure="1"
-          auto-rotate
-          rotation-per-second="12deg"
-          camera-orbit="auto auto auto"
-          min-camera-orbit="auto auto 10%"
-          max-camera-orbit="auto auto 400%"
-          alt="Expanded 3D preview"
-        ></model-viewer>
-      </div>
-      <p class="part-preview-modal-hint text-muted">Drag to rotate · Scroll to zoom · Shift+drag to pan</p>
-    </div>
-  </div>
   {% endif %}
 
   <section class="model-detail-edit">

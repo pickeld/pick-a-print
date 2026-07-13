@@ -6,6 +6,8 @@ import requests
 from django.conf import settings
 
 from library.download_providers.base import RemoteDownloadFile
+from library.downloads import DownloadError, supported_remote_filename
+from library.models import SavedModel
 from library.provider_credentials import myminifactory_api_key
 
 MMF_API = "https://www.myminifactory.com/api/v2"
