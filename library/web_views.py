@@ -88,6 +88,13 @@ def _parse_bulk_delete_ids(request):
         return None
 
 
+def _parse_file_ids(request):
+    try:
+        return [int(value) for value in request.POST.getlist("file_ids")]
+    except ValueError:
+        return None
+
+
 def _redirect_with_query(request):
     if request.GET:
         return redirect(f"{request.path}?{request.GET.urlencode()}")
@@ -113,6 +120,28 @@ def _handle_bulk_delete(request, queryset, *, empty_message="Select at least one
     to_delete.delete()
     label = "model" if count == 1 else "models"
     messages.success(request, f"Deleted {count} {label} from your library.")
+    return count
+
+
+def _handle_bulk_delete_files(request, model: SavedModel, *, empty_message="Select at least one part to delete."):
+    file_ids = _parse_file_ids(request)
+    if file_ids is None:
+        messages.error(request, "Invalid selection.")
+        return None
+
+    if not file_ids:
+        messages.error(request, empty_message)
+        return None
+
+    to_delete = model.files.filter(pk__in=file_ids)
+    count = to_delete.count()
+    if count == 0:
+        messages.error(request, "No matching parts found.")
+        return None
+
+    to_delete.delete()
+    label = "part" if count == 1 else "parts"
+    messages.success(request, f"Deleted {count} {label}.")
     return count
 
 
@@ -406,6 +435,11 @@ def model_detail_view(request, pk):
     form = ModelUpdateForm(request.POST or None, instance=model, user=request.user)
 
     if request.method == "POST":
+        if "bulk_delete_files" in request.POST:
+            if _handle_bulk_delete_files(request, model) is not None:
+                return redirect("model_detail", pk=model.pk)
+            return redirect("model_detail", pk=model.pk)
+
         if "delete" in request.POST:
             title = model.title
             model.delete()
@@ -418,6 +452,7 @@ def model_detail_view(request, pk):
             return redirect("model_detail", pk=model.pk)
 
     preview_files = _preview_files_for_model(model)
+    model_files = list(model.files.order_by("original_name"))
     return render(
         request,
         "library/model_detail.html",
@@ -425,7 +460,7 @@ def model_detail_view(request, pk):
             "model": model,
             "form": form,
             "preview_files": preview_files,
-            "preview_file": preview_files[0] if preview_files else None,
+            "model_files": model_files,
         },
     )
 
@@ -457,6 +492,61 @@ def model_preview_view(request, pk, file_id):
     )
     if inline:
         response["Cache-Control"] = "private, max-age=3600"
+    return response
+
+
+@login_required
+@require_http_methods(["POST"])
+def model_files_download_view(request, pk):
+    import io
+    import zipfile
+
+    model = get_object_or_404(SavedModel, pk=pk, user=request.user)
+    file_ids = _parse_file_ids(request)
+    if file_ids is None:
+        messages.error(request, "Invalid selection.")
+        return redirect("model_detail", pk=model.pk)
+
+    if not file_ids:
+        messages.error(request, "Select at least one part to download.")
+        return redirect("model_detail", pk=model.pk)
+
+    files = list(model.files.filter(pk__in=file_ids).order_by("original_name"))
+    if not files:
+        messages.error(request, "No matching parts found.")
+        return redirect("model_detail", pk=model.pk)
+
+    buffer = io.BytesIO()
+    used_names: dict[str, int] = {}
+    written = 0
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for model_file in files:
+            if not model_file.file:
+                continue
+            file_path = Path(model_file.file.path)
+            if not file_path.is_file():
+                continue
+
+            archive_name = model_file.original_name
+            if archive_name in used_names:
+                used_names[archive_name] += 1
+                stem = file_path.stem
+                suffix = file_path.suffix or f".{model_file.file_type}"
+                archive_name = f"{stem}_{used_names[archive_name]}{suffix}"
+            else:
+                used_names[archive_name] = 0
+
+            archive.write(file_path, arcname=archive_name)
+            written += 1
+
+    if written == 0:
+        messages.error(request, "Could not prepare a download for the selected parts.")
+        return redirect("model_detail", pk=model.pk)
+
+    buffer.seek(0)
+    safe_title = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in model.title[:80]).strip("._-") or "model"
+    response = HttpResponse(buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{safe_title}_parts.zip"'
     return response
 
 

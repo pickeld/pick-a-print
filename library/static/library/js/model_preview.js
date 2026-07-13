@@ -3,7 +3,7 @@
   const viewerLoading = document.getElementById("model-preview-loading");
   const viewerError = document.getElementById("model-preview-error");
   const previewSection = document.getElementById("model-preview-section");
-  const thumbButtons = document.querySelectorAll(".model-file-thumb");
+  const thumbStrip = document.getElementById("model-file-thumbs");
   if (!modelViewer || !viewerLoading) return;
 
   const viewer = window.PickAPrintViewer?.bind(modelViewer, viewerLoading, viewerError, {
@@ -13,28 +13,50 @@
   let activeFileId = previewSection?.dataset.activeFileId || null;
 
   function setActiveThumb(fileId) {
-    activeFileId = fileId;
-    if (previewSection) previewSection.dataset.activeFileId = fileId;
-    thumbButtons.forEach((button) => {
-      const isActive = button.dataset.fileId === fileId;
-      button.classList.toggle("model-file-thumb--active", isActive);
-      button.setAttribute("aria-selected", isActive ? "true" : "false");
+    activeFileId = String(fileId);
+    if (previewSection) previewSection.dataset.activeFileId = activeFileId;
+
+    thumbStrip?.querySelectorAll(".model-file-thumb").forEach((thumb) => {
+      const isActive = thumb.dataset.fileId === activeFileId;
+      thumb.classList.toggle("model-file-thumb--active", isActive);
+      thumb.setAttribute("aria-selected", isActive ? "true" : "false");
     });
   }
 
-  thumbButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const fileId = button.dataset.fileId;
-      const previewUrl = button.dataset.previewUrl;
-      if (!fileId || !previewUrl || fileId === activeFileId) return;
+  function switchPreview(fileId, previewUrl) {
+    if (!fileId || !previewUrl || String(fileId) === String(activeFileId)) return;
 
-      setActiveThumb(fileId);
-      viewer?.showLoading();
-      modelViewer.src = previewUrl;
+    setActiveThumb(fileId);
+    viewer?.showLoading();
+
+    window.customElements.whenDefined("model-viewer").then(() => {
+      modelViewer.setAttribute("src", previewUrl);
+      if (typeof modelViewer.dismissPoster === "function") {
+        modelViewer.dismissPoster();
+      }
+      modelViewer.cameraOrbit = "auto auto auto";
     });
+  }
+
+  function handleThumbActivate(thumb) {
+    switchPreview(thumb.dataset.fileId, thumb.dataset.previewUrl);
+  }
+
+  thumbStrip?.addEventListener("click", (event) => {
+    const thumb = event.target.closest(".model-file-thumb");
+    if (!thumb || !thumbStrip.contains(thumb)) return;
+    handleThumbActivate(thumb);
   });
 
-  window.customElements?.whenDefined("model-viewer").then(() => {
+  thumbStrip?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const thumb = event.target.closest(".model-file-thumb");
+    if (!thumb || !thumbStrip.contains(thumb)) return;
+    event.preventDefault();
+    handleThumbActivate(thumb);
+  });
+
+  window.customElements.whenDefined("model-viewer").then(() => {
     if (modelViewer.loaded) viewer?.hideLoading();
   });
 })();

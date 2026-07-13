@@ -4,118 +4,40 @@
 {% block title %}{{ model.title }} — Pick-a-Print{% endblock %}
 
 {% block head_extra %}
-{% if preview_file %}
+{% if preview_files %}
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="detail-layout{% if preview_file %} detail-layout--with-viewer{% endif %}">
-  {% if preview_file %}
-  <section
-    class="detail-preview detail-preview--viewer"
-    id="model-preview-section"
-    data-active-file-id="{{ preview_file.pk }}"
-  >
-    <div class="scan-viewer-header">
-      <h3>3D Preview</h3>
-      <span class="text-muted scan-viewer-hint">Drag to rotate · Scroll to zoom · Shift+drag to pan</span>
-    </div>
-    <div class="scan-viewer-wrap">
-      <div class="scan-viewer-loading" id="model-preview-loading">
-        <div class="viewer-load-panel">
-          <p class="viewer-load-label">Preparing preview</p>
-          <div class="progress-track viewer-load-track" aria-hidden="true">
-            <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
-          </div>
-          <p class="viewer-load-percent">0%</p>
-        </div>
+<div class="model-detail-page">
+  <header class="model-detail-header">
+    <div class="model-detail-header-main">
+      <h2 class="model-detail-title">{{ model.title }}</h2>
+      <div class="model-card-meta">
+        <span class="badge badge-site">{{ model.source_site|site_label }}</span>
+        <span class="badge badge-status {{ model.status }}">{{ model.status|status_label }}</span>
+        {% if model_files %}
+          <span class="badge badge-site">{{ model_files|length }} part{{ model_files|length|pluralize }}</span>
+        {% endif %}
       </div>
-      <div class="scan-viewer-error hidden" id="model-preview-error">
-        Could not load the 3D preview.
-      </div>
-      <model-viewer
-        id="model-preview-viewer"
-        camera-controls
-        touch-action="pan-y"
-        interaction-prompt="auto"
-        shadow-intensity="0.4"
-        exposure="1"
-        auto-rotate
-        rotation-per-second="12deg"
-        camera-orbit="auto auto auto"
-        min-camera-orbit="auto auto 10%"
-        max-camera-orbit="auto auto 400%"
-        src="{% url 'model_preview' pk=model.pk file_id=preview_file.pk %}?inline=1"
-        alt="{{ model.title }} 3D preview"
-      ></model-viewer>
-    </div>
-    {% if preview_files|length > 1 %}
-    <div class="model-file-thumbs" id="model-file-thumbs" role="listbox" aria-label="Model parts">
-      {% for f in preview_files %}
-      <button
-        type="button"
-        class="model-file-thumb{% if f.pk == preview_file.pk %} model-file-thumb--active{% endif %}"
-        role="option"
-        aria-selected="{% if f.pk == preview_file.pk %}true{% else %}false{% endif %}"
-        data-file-id="{{ f.pk }}"
-        data-preview-url="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
-        title="{{ f.original_name }}"
-      >
-        <span class="model-file-thumb-preview" aria-hidden="true">
-          <model-viewer
-            class="model-file-thumb-viewer"
-            loading="lazy"
-            interaction-policy="none"
-            camera-controls="false"
-            disable-zoom
-            auto-rotate
-            rotation-per-second="8deg"
-            shadow-intensity="0.3"
-            exposure="1"
-            camera-orbit="45deg 75deg auto"
-            src="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
-            alt=""
-          ></model-viewer>
-        </span>
-        <span class="model-file-thumb-label">{{ f.original_name|truncatechars:28 }}</span>
-      </button>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </section>
-  {% else %}
-  <div class="detail-preview">
-    {% if model.thumbnail_url %}
-      <img src="{{ model.thumbnail_url }}" alt="{{ model.title }}">
-    {% else %}
-      <div class="placeholder">🧊</div>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  <div class="detail-info">
-    <h2>{{ model.title }}</h2>
-    <div class="model-card-meta">
-      <span class="badge badge-site">{{ model.source_site|site_label }}</span>
-      <span class="badge badge-status {{ model.status }}">{{ model.status|status_label }}</span>
     </div>
 
-    <ul class="detail-meta-list">
+    <ul class="model-detail-meta">
       {% if model.designer %}
         <li><span class="label">Designer</span> {{ model.designer }}</li>
       {% endif %}
       {% if model.source_type == 'link' and model.source_url %}
-      <li><span class="label">Source</span> <a href="{{ model.source_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a></li>
+        <li><span class="label">Source</span> <a href="{{ model.source_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a></li>
       {% endif %}
       {% if model.license %}
         <li><span class="label">License</span> {{ model.license }}</li>
       {% endif %}
       <li><span class="label">Saved</span> {{ model.created_at|date:"M j, Y" }}</li>
       {% if model.tags.all %}
-        <li>
+        <li class="model-detail-meta-tags">
           <span class="label">Tags</span>
-          <span class="tags-row" style="margin:0">
+          <span class="tags-row">
             {% for tag in model.tags.all %}
               <span class="tag-pill">{{ tag.name }}</span>
             {% endfor %}
@@ -131,75 +53,281 @@
         </li>
       {% endif %}
     </ul>
+  </header>
 
-    {% if model.source_type == 'link' and model.metadata.download_status == 'pending' and not model.files.all %}
-    <div class="form-card" style="max-width:none;margin-top:1rem">
-      <p class="text-muted" style="margin:0">Downloading model files from {{ model.source_site|site_label }}…</p>
-    </div>
-    {% elif model.metadata.download_error and not model.files.all %}
-    <div class="form-card" style="max-width:none;margin-top:1rem">
-      <p class="text-muted" style="margin:0">Could not download files automatically: {{ model.metadata.download_error }}</p>
-    </div>
-    {% endif %}
+  {% if model.source_type == 'link' and model.metadata.download_status == 'pending' and not model_files %}
+  <div class="form-card model-detail-notice">
+    <p class="text-muted" style="margin:0">Downloading model files from {{ model.source_site|site_label }}…</p>
+  </div>
+  {% elif model.metadata.download_error and not model_files %}
+  <div class="form-card model-detail-notice">
+    <p class="text-muted" style="margin:0">Could not download files automatically: {{ model.metadata.download_error }}</p>
+  </div>
+  {% elif not model_files and model.thumbnail_url %}
+  <div class="model-parts-grid model-parts-grid--single">
+    <article class="part-card">
+      <div class="part-card-preview part-card-preview--image">
+        <img src="{{ model.thumbnail_url }}" alt="{{ model.title }}">
+      </div>
+      <div class="part-card-body">
+        <h3 class="part-card-title">{{ model.title }}</h3>
+        <p class="text-muted part-card-empty">No mesh files downloaded yet.</p>
+      </div>
+    </article>
+  </div>
+  {% elif model_files %}
+  <section class="model-parts-section" aria-label="Model parts">
+    <div class="model-parts-page" id="model-parts-page">
+      <div class="model-parts-toolbar">
+        <button
+          type="button"
+          class="btn btn-icon btn-secondary parts-edit-btn"
+          id="parts-edit-btn"
+          aria-label="Select parts"
+          aria-pressed="false"
+          title="Select parts"
+        >
+          <svg class="icon-pencil" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+          </svg>
+          <svg class="icon-done" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <path d="M20 6 9 17l-5-5"></path>
+          </svg>
+        </button>
+      </div>
 
-    {% if model.files.all %}
-    <div class="form-card" style="max-width:none;margin-top:1rem">
-      <h3 style="margin:0 0 1rem;font-size:1rem">File Analysis</h3>
-      {% for f in model.files.all %}
-        <ul class="detail-meta-list">
-          <li><span class="label">File</span> {{ f.original_name }}</li>
-          <li><span class="label">Size</span> {{ f.file_size|filesizeformat }}</li>
-          {% if f.triangle_count %}<li><span class="label">Triangles</span> {{ f.triangle_count }}</li>{% endif %}
-          {% if f.dimension_x %}
-            <li><span class="label">Dimensions</span> {{ f.dimension_x|floatformat:1 }} × {{ f.dimension_y|floatformat:1 }} × {{ f.dimension_z|floatformat:1 }} mm</li>
-          {% endif %}
-          {% if f.volume_cm3 %}<li><span class="label">Volume</span> ~{{ f.volume_cm3|floatformat:1 }} cm³</li>{% endif %}
-        </ul>
-        {% if f.file %}
-        <div class="form-actions" style="margin-top:0.75rem">
-          <a href="{{ f.file.url }}" class="btn btn-secondary" download="{{ f.original_name }}">Download {{ f.file_type|upper }}</a>
+      <form method="post" id="parts-bulk-form" class="parts-bulk-bar bulk-actions-bar" action="{% url 'model_detail' pk=model.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="bulk_delete_files" value="1">
+
+        <label class="bulk-select-all">
+          <input type="checkbox" id="select-all-parts" aria-label="Select all parts">
+          <span>Select all</span>
+        </label>
+
+        <span class="bulk-selection-count" id="parts-selection-count" hidden>
+          <span id="parts-selection-number">0</span> selected
+        </span>
+
+        <div class="parts-bulk-actions">
+          <button
+            type="submit"
+            class="btn btn-icon btn-secondary"
+            id="parts-download-btn"
+            formaction="{% url 'model_files_download' pk=model.pk %}"
+            formmethod="post"
+            disabled
+            title="Download selected"
+            aria-label="Download selected"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12"></path>
+              <path d="m7 10 5 5 5-5"></path>
+              <path d="M5 21h14"></path>
+            </svg>
+          </button>
+          <button
+            type="submit"
+            class="btn btn-icon btn-danger"
+            id="parts-delete-btn"
+            disabled
+            title="Delete selected"
+            aria-label="Delete selected"
+            data-confirm="Delete the selected parts? This cannot be undone."
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6h18"></path>
+              <path d="M8 6V4h8v2"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+              <path d="M5 6l1 14h12l1-14"></path>
+            </svg>
+          </button>
         </div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
+      </form>
 
-    <div class="form-card" style="max-width:none;margin-top:1.5rem">
-      <h3 style="margin:0 0 1rem;font-size:1rem">Edit</h3>
+      <div class="model-parts-grid" id="model-parts-grid">
+        {% for f in model_files %}
+        <article
+          class="part-card part-card--selectable{% if f.file_type == 'stl' or f.file_type == '3mf' %} part-card--previewable{% endif %}"
+          data-file-id="{{ f.pk }}"
+        >
+          <label class="part-card-check" aria-label="Select {{ f.original_name }}">
+            <input type="checkbox" name="file_ids" value="{{ f.pk }}" form="parts-bulk-form">
+          </label>
+
+          <div class="part-card-preview">
+            {% if f.file_type == "stl" or f.file_type == "3mf" %}
+            <button
+              type="button"
+              class="part-card-expand"
+              aria-label="Expand 3D preview"
+              title="Expand preview"
+              data-preview-url="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
+              data-file-name="{{ f.original_name }}"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 3h6v6"></path>
+                <path d="m21 3-7 7"></path>
+                <path d="m3 21 7-7"></path>
+                <path d="M9 21H3v-6"></path>
+              </svg>
+            </button>
+            <div class="part-card-loading">
+              <div class="viewer-load-panel">
+                <p class="viewer-load-label">Loading preview</p>
+                <div class="progress-track viewer-load-track" aria-hidden="true">
+                  <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="part-card-error hidden">Preview unavailable</div>
+            <model-viewer
+              class="part-card-viewer"
+              loading="lazy"
+              camera-controls
+              touch-action="pan-y"
+              interaction-prompt="none"
+              shadow-intensity="0.35"
+              exposure="1"
+              auto-rotate
+              rotation-per-second="10deg"
+              camera-orbit="45deg 75deg auto"
+              min-camera-orbit="auto auto 50%"
+              max-camera-orbit="auto auto 200%"
+              src="{% url 'model_preview' pk=model.pk file_id=f.pk %}?inline=1"
+              alt="{{ f.original_name }} 3D preview"
+            ></model-viewer>
+            {% else %}
+            <div class="part-card-placeholder">
+              <span class="part-card-placeholder-icon">📄</span>
+              <span class="part-card-placeholder-type">{{ f.file_type|upper }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="part-card-body">
+            <h3 class="part-card-title" title="{{ f.original_name }}">{{ f.original_name }}</h3>
+            <ul class="part-card-stats">
+              <li><span class="label">Size</span> <span>{{ f.file_size|filesizeformat }}</span></li>
+              <li><span class="label">Type</span> <span>{{ f.file_type|upper }}</span></li>
+              {% if f.triangle_count %}
+                <li><span class="label">Triangles</span> <span>{{ f.triangle_count }}</span></li>
+              {% endif %}
+              {% if f.dimension_x %}
+                <li><span class="label">Dimensions</span> <span>{{ f.dimension_x|floatformat:1 }} × {{ f.dimension_y|floatformat:1 }} × {{ f.dimension_z|floatformat:1 }} mm</span></li>
+              {% endif %}
+              {% if f.volume_cm3 %}
+                <li><span class="label">Volume</span> <span>~{{ f.volume_cm3|floatformat:1 }} cm³</span></li>
+              {% endif %}
+            </ul>
+            {% if f.file %}
+            <div class="part-card-actions">
+              <a
+                href="{{ f.file.url }}"
+                class="btn btn-icon btn-secondary btn-sm part-card-download"
+                download="{{ f.original_name }}"
+                title="Download {{ f.original_name }}"
+                aria-label="Download {{ f.original_name }}"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3v12"></path>
+                  <path d="m7 10 5 5 5-5"></path>
+                  <path d="M5 21h14"></path>
+                </svg>
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <div class="part-preview-modal hidden" id="part-preview-modal" role="dialog" aria-modal="true" aria-labelledby="part-preview-modal-title">
+    <div class="part-preview-modal-backdrop" data-close-modal></div>
+    <div class="part-preview-modal-panel">
+      <div class="part-preview-modal-header">
+        <h3 id="part-preview-modal-title" class="part-preview-modal-title"></h3>
+        <button type="button" class="btn btn-icon btn-ghost part-preview-modal-close" id="part-preview-modal-close" aria-label="Close preview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="part-preview-modal-body">
+        <div class="scan-viewer-loading" id="part-preview-modal-loading">
+          <div class="viewer-load-panel">
+            <p class="viewer-load-label">Loading preview</p>
+            <div class="progress-track viewer-load-track" aria-hidden="true">
+              <div class="progress-fill viewer-load-bar" style="width: 0%"></div>
+            </div>
+            <p class="viewer-load-percent">0%</p>
+          </div>
+        </div>
+        <div class="scan-viewer-error hidden" id="part-preview-modal-error">Could not load the 3D preview.</div>
+        <model-viewer
+          id="part-preview-modal-viewer"
+          camera-controls
+          touch-action="pan-y"
+          interaction-prompt="auto"
+          shadow-intensity="0.4"
+          exposure="1"
+          auto-rotate
+          rotation-per-second="12deg"
+          camera-orbit="auto auto auto"
+          min-camera-orbit="auto auto 10%"
+          max-camera-orbit="auto auto 400%"
+          alt="Expanded 3D preview"
+        ></model-viewer>
+      </div>
+      <p class="part-preview-modal-hint text-muted">Drag to rotate · Scroll to zoom · Shift+drag to pan</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="model-detail-edit">
+    <div class="form-card model-detail-edit-card">
+      <h3 class="model-detail-edit-title">Edit model</h3>
       <form method="post">
         {% csrf_token %}
 
-        <div class="form-group">
-          <label>Title</label>
-          {{ form.title }}
-        </div>
+        <div class="model-detail-edit-grid">
+          <div class="form-group">
+            <label>Title</label>
+            {{ form.title }}
+          </div>
 
-        <div class="form-group">
-          <label>Designer</label>
-          {{ form.designer }}
-        </div>
+          <div class="form-group">
+            <label>Designer</label>
+            {{ form.designer }}
+          </div>
 
-        <div class="form-group">
-          <label>License</label>
-          {{ form.license }}
-        </div>
+          <div class="form-group">
+            <label>License</label>
+            {{ form.license }}
+          </div>
 
-        <div class="form-group">
-          <label>Status</label>
-          {{ form.status }}
-        </div>
+          <div class="form-group">
+            <label>Status</label>
+            {{ form.status }}
+          </div>
 
-        <div class="form-group">
-          <label>{{ form.tag_names.label }}</label>
-          {{ form.tag_names }}
-        </div>
+          <div class="form-group">
+            <label>{{ form.tag_names.label }}</label>
+            {{ form.tag_names }}
+          </div>
 
-        {% if form.collections.field.queryset %}
-        <div class="form-group">
-          <label>{{ form.collections.label }}</label>
-          {{ form.collections }}
+          {% if form.collections.field.queryset %}
+          <div class="form-group">
+            <label>{{ form.collections.label }}</label>
+            {{ form.collections }}
+          </div>
+          {% endif %}
         </div>
-        {% endif %}
 
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">Save changes</button>
@@ -207,11 +335,13 @@
         </div>
       </form>
     </div>
-  </div>
+  </section>
 </div>
 
-{% if preview_file %}
-<script src="{% static 'library/js/model_viewer_ui.js' %}"></script>
-<script src="{% static 'library/js/model_preview.js' %}"></script>
+{% if preview_files %}
+<script src="{% static 'library/js/model_viewer_ui.js' %}?v={{ static_asset_version }}"></script>
+<script src="{% static 'library/js/model_parts_page.js' %}?v={{ static_asset_version }}"></script>
+{% elif model_files %}
+<script src="{% static 'library/js/model_parts_page.js' %}?v={{ static_asset_version }}"></script>
 {% endif %}
 {% endblock %}

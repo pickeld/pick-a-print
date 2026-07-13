@@ -17,6 +17,7 @@ urlpatterns = [
     path("settings/scan-worker-save/", web_views.scan_worker_save_view, name="scan_worker_save"),
     path("models/<int:pk>/", web_views.model_detail_view, name="model_detail"),
     path("models/<int:pk>/preview/<int:file_id>/", web_views.model_preview_view, name="model_preview"),
+    path("models/<int:pk>/files/download/", web_views.model_files_download_view, name="model_files_download"),
     path("collections/", web_views.collections_list_view, name="collections_list"),
     path("collections/<slug:slug>/", web_views.collection_detail_view, name="collection_detail"),
     path("scan/", web_views.scan_list_view, name="scan_list"),
