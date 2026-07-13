@@ -146,10 +146,18 @@ def create_scan_job(
 
     _validate_upload_files(files)
 
-    max_bytes = settings.SCAN_MAX_UPLOAD_MB * 1024 * 1024
+    max_bytes = settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB * 1024 * 1024
     total_size = sum(getattr(f, "size", 0) or 0 for f in files)
     if total_size > max_bytes:
-        raise ScanError(f"Total upload exceeds {settings.SCAN_MAX_UPLOAD_MB} MB limit.")
+        raise ScanError(
+            f"Total upload exceeds {settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB} MB limit."
+            + (
+                " Cloudflare caps uploads at ~100 MB when the site is proxied — use a smaller file, "
+                "a .zip of photos instead of a long video, or upload from your home network."
+                if settings.CLOUDFLARE_PROXY
+                else ""
+            )
+        )
 
     job_id = str(uuid.uuid4())
     root = workspace_root()

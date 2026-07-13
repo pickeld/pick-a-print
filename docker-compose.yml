@@ -64,6 +64,9 @@ services:
       THINGIVERSE_API_TOKEN: ${THINGIVERSE_API_TOKEN:-}
       BAMBU_LAB_TOKEN: ${BAMBU_LAB_TOKEN:-}
       MYMINIFACTORY_API_KEY: ${MYMINIFACTORY_API_KEY:-}
+      CLOUDFLARE_PROXY: "true"
+      CLOUDFLARE_MAX_UPLOAD_MB: "100"
+      SCAN_MAX_UPLOAD_MB: "200"
     depends_on:
       db:
         condition: service_healthy

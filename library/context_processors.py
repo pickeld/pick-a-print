@@ -12,3 +12,12 @@ def sidebar_collections(request):
         .order_by("name")[:20]
     )
     return {"sidebar_collections": collections}
+
+
+def upload_limits(request):
+    from django.conf import settings as django_settings
+
+    return {
+        "scan_max_upload_mb": django_settings.EFFECTIVE_SCAN_MAX_UPLOAD_MB,
+        "cloudflare_proxy": django_settings.CLOUDFLARE_PROXY,
+    }

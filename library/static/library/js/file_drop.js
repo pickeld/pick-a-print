@@ -12,6 +12,8 @@
 
   const scanUrl = body.dataset.scanUploadUrl;
   const modelUrl = body.dataset.modelUploadUrl;
+  const maxScanBytes = (parseInt(body.dataset.scanMaxUploadMb, 10) || 95) * 1024 * 1024;
+  const cloudflareProxy = body.dataset.cloudflareProxy === "1";
   const statusEl = overlay.querySelector(".file-drop-status");
   const hintEl = overlay.querySelector(".file-drop-hint");
   const dropProgressWrap = document.getElementById("file-drop-progress");
@@ -64,6 +66,23 @@
       unit += 1;
     }
     return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+  }
+
+  function scanSizeError(files) {
+    const total = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (total <= maxScanBytes) return null;
+    const maxMb = Math.round(maxScanBytes / (1024 * 1024));
+    if (cloudflareProxy) {
+      return `Total ${formatBytes(total)} exceeds ${maxMb} MB. Cloudflare blocks proxied uploads over ~100 MB — use a smaller video, a .zip of photos, or upload on your home network.`;
+    }
+    return `Total ${formatBytes(total)} exceeds the ${maxMb} MB upload limit.`;
+  }
+
+  function payloadTooLargeMessage() {
+    if (cloudflareProxy) {
+      return "Upload blocked by Cloudflare (max ~100 MB). Use a smaller file or upload on your home network.";
+    }
+    return "Upload too large for the server.";
   }
 
   function setStatus(message) {
@@ -212,6 +231,9 @@
       if (data.redirect) return data.redirect;
       throw new Error(data.error || `${fallbackLabel} failed`);
     }
+    if (result.status === 413) {
+      throw new Error(payloadTooLargeMessage());
+    }
     if (result.status >= 400) {
       throw new Error(`${fallbackLabel} failed (${result.status})`);
     }
@@ -281,6 +303,16 @@
     if (!files.length || uploading) return;
 
     const { scan, model, unsupported } = classifyFiles(files);
+    const scanSizeLimitError = scan.length ? scanSizeError(scan) : null;
+    if (scanSizeLimitError) {
+      setStatus(scanSizeLimitError);
+      overlay.classList.add("file-drop-overlay--error");
+      window.setTimeout(() => {
+        overlay.classList.remove("file-drop-overlay--error");
+        hideOverlay();
+      }, 4200);
+      return;
+    }
     if (!scan.length && !model.length) {
       setStatus(
         unsupported.length === 1
@@ -336,6 +368,22 @@
       const fileInput = scanForm.querySelector('input[name="files"]');
       const files = fileInput?.files ? [...fileInput.files] : [];
       if (!files.length) return;
+
+      const scanSizeLimitError = scanSizeError(files);
+      if (scanSizeLimitError) {
+        resetProgressUI({
+          wrap: scanProgressWrap,
+          bar: scanProgressBar,
+          label: scanProgressLabel,
+          track: scanProgressTrack,
+        });
+        if (scanProgressWrap) scanProgressWrap.hidden = false;
+        if (scanProgressLabel) {
+          scanProgressLabel.textContent = scanSizeLimitError;
+          scanProgressLabel.style.color = "var(--danger, #ef4444)";
+        }
+        return;
+      }
 
       scanSubmitBtn.disabled = true;
       const progressUi = {

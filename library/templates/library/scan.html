@@ -34,7 +34,7 @@
       <div class="form-group">
         <label for="scan-files">Photos, video, or .zip</label>
         <input type="file" id="scan-files" name="files" multiple required accept="image/*,video/*,.zip,.mp4,.mov,.webm">
-        <div class="helptext">Upload individual photos, a video, or a .zip containing images/video. At least 8 photos recommended. Or drag and drop anywhere in the app.</div>
+        <div class="helptext">Upload individual photos, a video, or a .zip containing images/video. At least 8 photos recommended. Or drag and drop anywhere in the app.{% if cloudflare_proxy %} Max {{ scan_max_upload_mb }} MB total via Cloudflare (~100 MB cap).{% endif %}</div>
       </div>
 
       <div class="form-group">

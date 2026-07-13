@@ -17,6 +17,8 @@
   data-scan-upload-url="{% url 'scan_list' %}"
   data-model-upload-url="{% url 'model_save' %}"
   data-share-url="{% url 'share_target' %}"
+  data-scan-max-upload-mb="{{ scan_max_upload_mb }}"
+  data-cloudflare-proxy="{% if cloudflare_proxy %}1{% else %}0{% endif %}"
 >
   <div class="app-shell">
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
