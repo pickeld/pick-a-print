@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import re
 
+import requests
+from django.conf import settings
+
+from library.download_providers.base import RemoteDownloadFile
 from library.provider_credentials import bambu_lab_token
-from library.downloads import DownloadError
-from library.models import SavedModel
 
 BAMBU_API = "https://api.bambulab.com"
 

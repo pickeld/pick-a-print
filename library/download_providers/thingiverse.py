@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import re
 
+import requests
+from django.conf import settings
+
+from library.download_providers.base import RemoteDownloadFile
 from library.provider_credentials import thingiverse_api_token
-from library.downloads import DownloadError, supported_remote_filename
-from library.models import SavedModel
 
 THINGIVERSE_API = "https://api.thingiverse.com"
 

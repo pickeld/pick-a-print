@@ -453,6 +453,7 @@ def model_detail_view(request, pk):
 
     preview_files = _preview_files_for_model(model)
     model_files = list(model.files.order_by("original_name"))
+    preview_file = preview_files[0] if preview_files else None
     return render(
         request,
         "library/model_detail.html",
@@ -460,13 +461,14 @@ def model_detail_view(request, pk):
             "model": model,
             "form": form,
             "preview_files": preview_files,
+            "preview_file": preview_file,
             "model_files": model_files,
         },
     )
 
 
 def _preview_files_for_model(model: SavedModel) -> list[ModelFile]:
-    return list(model.files.filter(file_type__in=["stl", "3mf"]).order_by("-created_at"))
+    return list(model.files.filter(file_type__in=["stl", "3mf"]).order_by("original_name"))
 
 
 @login_required
