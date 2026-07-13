@@ -3,6 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 
 from django.utils.text import slugify
 
+from library.collection_icons import COLLECTION_ICONS, DEFAULT_COLLECTION_ICON
 from library.models import NO_COLLECTION_SLUG, Collection, ModelStatus, SavedModel
 
 
@@ -76,9 +77,10 @@ class SaveModelForm(forms.Form):
 class CollectionForm(forms.ModelForm):
     class Meta:
         model = Collection
-        fields = ["name", "description"]
+        fields = ["name", "icon", "description"]
         widgets = {
-            "name": forms.TextInput(attrs={"placeholder": "Christmas gifts"}),
+            "name": forms.TextInput(attrs={"placeholder": "Christmas gifts", "autocomplete": "off"}),
+            "icon": forms.HiddenInput(),
             "description": forms.Textarea(attrs={"placeholder": "Optional description", "rows": 3}),
         }
 
@@ -87,6 +89,12 @@ class CollectionForm(forms.ModelForm):
         if slugify(name) == NO_COLLECTION_SLUG:
             raise forms.ValidationError("That name is reserved.")
         return name
+
+    def clean_icon(self):
+        icon = (self.cleaned_data.get("icon") or DEFAULT_COLLECTION_ICON).strip().lower()
+        if icon not in COLLECTION_ICONS:
+            raise forms.ValidationError("Choose a valid icon.")
+        return icon
 
 
 class ModelUpdateForm(forms.ModelForm):

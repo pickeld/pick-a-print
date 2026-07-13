@@ -17,7 +17,7 @@ class CollectionListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Collection
-        fields = ["id", "name", "slug", "description", "model_count", "created_at", "updated_at"]
+        fields = ["id", "name", "slug", "icon", "description", "model_count", "created_at", "updated_at"]
         read_only_fields = ["id", "slug", "created_at", "updated_at"]
 
 

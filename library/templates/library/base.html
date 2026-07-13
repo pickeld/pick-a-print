@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
   <link rel="stylesheet" href="{% static 'library/css/app.css' %}">
   {% block head_extra %}{% endblock %}
 </head>
@@ -62,31 +63,18 @@
             {% include "library/partials/collection_add_button.html" %}
           </div>
 
-          <form
-            method="post"
-            action="{% url 'collections_list' %}"
-            class="sidebar-collection-create"
-            data-collection-create-form
-            hidden
-          >
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.path }}">
-            <input type="text" name="name" placeholder="Collection name" required maxlength="200" aria-label="Collection name">
-            <button type="submit" class="btn btn-primary btn-sm">Create</button>
-          </form>
-
           <a href="{% url 'collections_list' %}" class="nav-link {% if request.resolver_match.url_name == 'collections_list' %}active{% endif %}">
-            <span>📚</span> All Collections
+            <span class="mdi mdi-bookshelf nav-link-icon" aria-hidden="true"></span> All Collections
           </a>
           {% if sidebar_uncollected_count %}
             <a href="{% url 'collection_detail' slug=no_collection_slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == no_collection_slug %}active{% endif %}">
-              <span>📂</span> No collection
+              <span class="mdi mdi-folder-off nav-link-icon" aria-hidden="true"></span> No collection
               <span class="count">{{ sidebar_uncollected_count }}</span>
             </a>
           {% endif %}
           {% for col in sidebar_collections %}
             <a href="{% url 'collection_detail' slug=col.slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}">
-              <span>📁</span> {{ col.name }}
+              <span class="mdi mdi-{{ col.icon|default:'folder' }} nav-link-icon" aria-hidden="true"></span> {{ col.name }}
               <span class="count">{{ col.model_count }}</span>
             </a>
           {% endfor %}
@@ -133,6 +121,10 @@
       </main>
     </div>
   </div>
+
+  {% if request.user.is_authenticated %}
+    {% include "library/partials/collection_create_modal.html" %}
+  {% endif %}
 
   <div id="file-drop-overlay" class="file-drop-overlay" hidden>
     <div class="file-drop-panel">

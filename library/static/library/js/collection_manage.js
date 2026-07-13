@@ -1,22 +1,120 @@
 document.addEventListener("DOMContentLoaded", () => {
+  initCollectionCreateModal();
   document.querySelectorAll("[data-collection-manage]").forEach(initCollectionManage);
 });
+
+const DEFAULT_COLLECTION_ICON = "folder";
+
+function readCollectionIcons() {
+  const data = document.getElementById("collection-icons-data");
+  if (!data) return [DEFAULT_COLLECTION_ICON];
+  try {
+    const icons = JSON.parse(data.textContent);
+    return Array.isArray(icons) && icons.length ? icons : [DEFAULT_COLLECTION_ICON];
+  } catch {
+    return [DEFAULT_COLLECTION_ICON];
+  }
+}
+
+function initCollectionCreateModal() {
+  const modal = document.querySelector("[data-collection-create-modal]");
+  const form = modal?.querySelector("[data-collection-create-form]");
+  if (!modal || !form) return;
+
+  const nameInput = form.querySelector("[data-collection-name-input]");
+  const iconInput = form.querySelector("[data-collection-icon-input]");
+  const nextInput = form.querySelector("[data-collection-next-input]");
+  const picker = form.querySelector("[data-collection-icon-picker]");
+  const icons = readCollectionIcons();
+
+  const setIcon = (iconName) => {
+    const icon = icons.includes(iconName) ? iconName : DEFAULT_COLLECTION_ICON;
+    if (iconInput) iconInput.value = icon;
+    picker?.querySelectorAll("[data-collection-icon-option]").forEach((button) => {
+      const selected = button.dataset.collectionIconOption === icon;
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  };
+
+  if (picker && !picker.dataset.ready) {
+    picker.dataset.ready = "1";
+    picker.innerHTML = icons
+      .map(
+        (icon) => `
+          <button
+            type="button"
+            class="collection-icon-option"
+            data-collection-icon-option="${icon}"
+            aria-label="${icon.replace(/-/g, " ")}"
+            aria-pressed="false"
+            title="${icon.replace(/-/g, " ")}"
+          >
+            <span class="mdi mdi-${icon}" aria-hidden="true"></span>
+          </button>
+        `
+      )
+      .join("");
+
+    picker.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-collection-icon-option]");
+      if (!button) return;
+      setIcon(button.dataset.collectionIconOption);
+    });
+  }
+
+  const openModal = () => {
+    modal.hidden = false;
+    document.body.classList.add("collection-modal-open");
+    if (nextInput) nextInput.value = window.location.pathname;
+    if (nameInput) {
+      nameInput.value = "";
+    }
+    setIcon(iconInput?.value || DEFAULT_COLLECTION_ICON);
+    nameInput?.focus();
+  };
+
+  const closeModal = () => {
+    modal.hidden = true;
+    document.body.classList.remove("collection-modal-open");
+    document.querySelectorAll("[data-collection-manage]").forEach((root) => {
+      root.classList.remove("is-creating");
+      const addBtn = root.querySelector("[data-collection-add]");
+      addBtn?.classList.remove("is-active");
+      addBtn?.setAttribute("aria-pressed", "false");
+    });
+  };
+
+  modal.querySelectorAll("[data-collection-modal-close]").forEach((button) => {
+    button.addEventListener("click", closeModal);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) {
+      closeModal();
+    }
+  });
+
+  window.openCollectionCreateModal = openModal;
+  window.closeCollectionCreateModal = closeModal;
+
+  if (modal.dataset.openOnLoad === "1") {
+    openModal();
+  }
+}
 
 function initCollectionManage(root) {
   const addBtn = root.querySelector("[data-collection-add]");
   const editBtn = root.querySelector("[data-collection-edit]");
-  const createForm = root.querySelector("[data-collection-create-form]");
   const bulkForm = root.querySelector("[data-collection-bulk-form]");
   const deleteBtn = root.querySelector("[data-collection-delete-btn]");
-  const createPanel = root.querySelector("[data-collection-create-panel]");
-  if (!addBtn) return;
+  if (!addBtn && !editBtn) return;
 
-  const addLabel = addBtn.querySelector(".collection-manage-btn__label");
+  const addLabel = addBtn?.querySelector(".collection-manage-btn__label");
   const editLabel = editBtn?.querySelector(".edit-mode-toggle__label");
   const pencilIcon = editBtn?.querySelector(".icon-pencil");
   const doneIcon = editBtn?.querySelector(".icon-done");
   const checkboxes = () => Array.from(root.querySelectorAll('input[name="collection_ids"]'));
-  const checkLabels = () => Array.from(root.querySelectorAll(".collection-card-check"));
 
   const clearSelection = () => {
     checkboxes().forEach((box) => {
@@ -25,28 +123,13 @@ function initCollectionManage(root) {
     updateSelection();
   };
 
-  const setCreateOpen = (open) => {
-    root.classList.toggle("is-creating", open);
-    if (createPanel) {
-      createPanel.hidden = !open;
-    } else if (createForm) {
-      createForm.hidden = !open;
-    }
-    addBtn.classList.toggle("is-active", open);
-    addBtn.setAttribute("aria-pressed", open ? "true" : "false");
-    if (addLabel) {
-      addBtn.setAttribute("title", open ? (addBtn.dataset.labelClose || "Cancel") : "New collection");
-      addLabel.textContent = open
-        ? (addBtn.dataset.labelClose || "Cancel")
-        : (addBtn.dataset.labelOpen || "New");
-    } else {
-      addBtn.setAttribute("title", open ? "Cancel" : "New collection");
-    }
-    if (open) {
-      const nameInput =
-        createPanel?.querySelector('input[name="name"]') ||
-        createForm?.querySelector('input[name="name"]');
-      nameInput?.focus();
+  const openCreateModal = () => {
+    setEditMode(false);
+    window.openCollectionCreateModal?.();
+    if (addBtn) {
+      root.classList.add("is-creating");
+      addBtn.classList.add("is-active");
+      addBtn.setAttribute("aria-pressed", "true");
     }
   };
 
@@ -64,14 +147,8 @@ function initCollectionManage(root) {
     if (pencilIcon) pencilIcon.hidden = enabled;
     if (doneIcon) doneIcon.hidden = !enabled;
 
-    checkLabels().forEach((label) => {
-      label.hidden = !enabled;
-    });
-
     if (!enabled) {
       clearSelection();
-    } else {
-      setCreateOpen(false);
     }
   };
 
@@ -91,10 +168,12 @@ function initCollectionManage(root) {
     });
   };
 
-  addBtn.addEventListener("click", () => {
-    const open = !root.classList.contains("is-creating");
-    if (open) setEditMode(false);
-    setCreateOpen(open);
+  addBtn?.addEventListener("click", () => {
+    openCreateModal();
+    if (addLabel) {
+      addBtn.setAttribute("title", "New collection");
+      addLabel.textContent = addBtn.dataset.labelOpen || "New";
+    }
   });
 
   editBtn?.addEventListener("click", () => {
@@ -109,17 +188,17 @@ function initCollectionManage(root) {
 
   root.addEventListener("click", (event) => {
     if (!root.classList.contains("is-editing")) return;
+    if (event.target.closest(".collection-card-check")) return;
 
-    const link = event.target.closest("[data-collection-link]");
-    if (link) {
-      event.preventDefault();
-      const item = link.closest("[data-collection-item]");
-      const box = item?.querySelector('input[name="collection_ids"]');
-      if (box) {
-        box.checked = !box.checked;
-        updateSelection();
-      }
-    }
+    const item = event.target.closest("[data-collection-item]");
+    if (!item) return;
+
+    const box = item.querySelector('input[name="collection_ids"]');
+    if (!box) return;
+
+    event.preventDefault();
+    box.checked = !box.checked;
+    updateSelection();
   });
 
   deleteBtn?.addEventListener("click", (event) => {
@@ -151,5 +230,4 @@ function initCollectionManage(root) {
   });
 
   setEditMode(false);
-  setCreateOpen(false);
 }

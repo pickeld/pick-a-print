@@ -636,6 +636,9 @@ def collections_list_view(request):
         messages.success(request, f'Collection "{collection.name}" created.')
         return _redirect_after_collection_action(request, fallback=reverse("collection_detail", kwargs={"slug": collection.slug}))
 
+    if request.method == "POST":
+        messages.error(request, "Could not create collection. Check the name and icon.")
+
     return render(
         request,
         "library/collections_list.html",

@@ -1,5 +1,6 @@
 from django.db.models import Count
 
+from library.collection_icons import COLLECTION_ICONS
 from library.models import NO_COLLECTION_SLUG, Collection, uncollected_models_for_user
 
 
@@ -9,6 +10,7 @@ def sidebar_collections(request):
             "sidebar_collections": [],
             "sidebar_uncollected_count": 0,
             "no_collection_slug": NO_COLLECTION_SLUG,
+            "collection_icons": COLLECTION_ICONS,
         }
     collections = (
         Collection.objects.filter(user=request.user)
@@ -19,6 +21,7 @@ def sidebar_collections(request):
         "sidebar_collections": collections,
         "sidebar_uncollected_count": uncollected_models_for_user(request.user).count(),
         "no_collection_slug": NO_COLLECTION_SLUG,
+        "collection_icons": COLLECTION_ICONS,
     }
 
 

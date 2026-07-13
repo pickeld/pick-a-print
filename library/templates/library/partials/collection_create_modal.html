@@ -1,0 +1,59 @@
+<div
+  id="collection-create-modal"
+  class="collection-modal"
+  data-collection-create-modal
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="collection-create-modal-title"
+>
+  <button type="button" class="collection-modal__backdrop" data-collection-modal-close aria-label="Close"></button>
+  <div class="collection-modal__panel">
+    <div class="collection-modal__header">
+      <h3 id="collection-create-modal-title">New collection</h3>
+      <button type="button" class="btn btn-ghost collection-modal__close" data-collection-modal-close aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <form
+      method="post"
+      action="{% url 'collections_list' %}"
+      class="collection-modal__form"
+      data-collection-create-form
+    >
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}" data-collection-next-input>
+      <input type="hidden" name="icon" value="folder" data-collection-icon-input>
+
+      <div class="form-group">
+        <label for="collection-create-name">Name</label>
+        <input
+          type="text"
+          id="collection-create-name"
+          name="name"
+          required
+          maxlength="200"
+          placeholder="Christmas gifts"
+          autocomplete="off"
+          data-collection-name-input
+        >
+      </div>
+
+      <div class="form-group">
+        <label>Icon</label>
+        <div class="collection-icon-picker" data-collection-icon-picker></div>
+      </div>
+
+      <div class="collection-modal__actions">
+        <button type="button" class="btn btn-ghost" data-collection-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{ collection_icons|json_script:"collection-icons-data" }}

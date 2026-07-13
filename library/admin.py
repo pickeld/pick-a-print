@@ -20,7 +20,7 @@ class SavedModelAdmin(admin.ModelAdmin):
 
 @admin.register(Collection)
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ["name", "user", "slug", "created_at"]
+    list_display = ["name", "icon", "user", "slug", "created_at"]
     search_fields = ["name", "user__username"]
     prepopulated_fields = {"slug": ("name",)}
 

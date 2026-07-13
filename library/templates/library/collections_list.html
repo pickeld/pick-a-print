@@ -40,18 +40,18 @@
         <div class="collection-grid">
           {% if uncollected_count %}
             <a href="{% url 'collection_detail' slug=no_collection_slug %}" class="collection-card collection-card--uncategorized">
-              <h4>No collection</h4>
+              <h4><span class="mdi mdi-folder-off collection-card-icon" aria-hidden="true"></span> No collection</h4>
               <p>Models not assigned to any collection</p>
               <div class="count">{{ uncollected_count }} model{{ uncollected_count|pluralize }}</div>
             </a>
           {% endif %}
           {% for col in collections %}
             <div class="collection-card-wrap" data-collection-item>
-              <label class="collection-card-check" hidden aria-label="Select {{ col.name }}">
+              <label class="collection-card-check" aria-label="Select {{ col.name }}">
                 <input type="checkbox" name="collection_ids" value="{{ col.pk }}" form="collections-bulk-form">
               </label>
               <a href="{% url 'collection_detail' slug=col.slug %}" class="collection-card collection-card--selectable" data-collection-link>
-                <h4>{{ col.name }}</h4>
+                <h4><span class="mdi mdi-{{ col.icon|default:'folder' }} collection-card-icon" aria-hidden="true"></span> {{ col.name }}</h4>
                 {% if col.description %}<p>{{ col.description|truncatewords:15 }}</p>{% endif %}
                 <div class="count">{{ col.model_count }} model{{ col.model_count|pluralize }}</div>
               </a>
@@ -65,22 +65,18 @@
         </div>
       {% endif %}
     </div>
-
-    <div class="form-card collections-create-panel" data-collection-create-panel hidden>
-      <h3 class="collections-form-title">New Collection</h3>
-      <form method="post" data-collection-create-form>
-        {% csrf_token %}
-        <div class="form-group">
-          <label>Name</label>
-          {{ form.name }}
-        </div>
-        <div class="form-group">
-          <label>Description</label>
-          {{ form.description }}
-        </div>
-        <button type="submit" class="btn btn-primary">Create</button>
-      </form>
-    </div>
   </div>
 </div>
+{% if form.errors %}
+<script>
+  (() => {
+    const modal = document.getElementById("collection-create-modal");
+    modal?.setAttribute("data-open-on-load", "1");
+    const nameInput = document.querySelector("[data-collection-name-input]");
+    const iconInput = document.querySelector("[data-collection-icon-input]");
+    if (nameInput) nameInput.value = "{{ form.name.value|default:''|escapejs }}";
+    if (iconInput) iconInput.value = "{{ form.icon.value|default:'folder'|escapejs }}";
+  })();
+</script>
+{% endif %}
 {% endblock %}
