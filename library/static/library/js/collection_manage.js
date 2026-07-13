@@ -11,6 +11,8 @@ function initCollectionManage(root) {
   const createPanel = root.querySelector("[data-collection-create-panel]");
   if (!addBtn || !editBtn) return;
 
+  const addLabel = addBtn.querySelector(".collection-manage-btn__label");
+  const editLabel = editBtn.querySelector(".edit-mode-toggle__label");
   const pencilIcon = editBtn.querySelector(".icon-pencil");
   const doneIcon = editBtn.querySelector(".icon-done");
   const checkboxes = () => Array.from(root.querySelectorAll('input[name="collection_ids"]'));
@@ -31,6 +33,12 @@ function initCollectionManage(root) {
     }
     addBtn.classList.toggle("is-active", open);
     addBtn.setAttribute("aria-pressed", open ? "true" : "false");
+    addBtn.setAttribute("title", open ? (addBtn.dataset.labelClose || "Cancel") : "New collection");
+    if (addLabel) {
+      addLabel.textContent = open
+        ? (addBtn.dataset.labelClose || "Cancel")
+        : (addBtn.dataset.labelOpen || "New");
+    }
     if (open) {
       const nameInput =
         createPanel?.querySelector('input[name="name"]') ||
@@ -42,10 +50,12 @@ function initCollectionManage(root) {
   const setEditMode = (enabled) => {
     root.classList.toggle("is-editing", enabled);
     editBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    const editText = editBtn.dataset.labelEdit || "Edit";
+    const doneText = editBtn.dataset.labelDone || "Done";
     editBtn.setAttribute("aria-label", enabled ? "Done editing" : "Edit collections");
-    editBtn.setAttribute("title", enabled ? "Done" : "Edit collections");
+    editBtn.setAttribute("title", enabled ? doneText : "Edit collections");
     editBtn.classList.toggle("is-active", enabled);
-
+    if (editLabel) editLabel.textContent = enabled ? doneText : editText;
     if (pencilIcon) pencilIcon.hidden = enabled;
     if (doneIcon) doneIcon.hidden = !enabled;
 

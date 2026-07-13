@@ -142,13 +142,63 @@ img {
 }
 
 .collection-manage-btn {
-  width: 1.65rem;
-  height: 1.65rem;
   color: var(--text-muted);
 }
 
+.nav-section-header .collection-manage-actions {
+  gap: 0.15rem;
+}
+
+.nav-section-header .collection-manage-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+}
+
+.nav-section-header .collection-manage-btn__label {
+  display: none;
+}
+
+.nav-section-header .collection-manage-btn__icon {
+  grid-area: 1 / 1;
+}
+
+.nav-section-header .collection-manage-btn__icon[hidden] {
+  display: none !important;
+}
+
+.page-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.edit-mode-toggle {
+  min-width: 4.25rem;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.page-header--with-actions .collection-manage-actions {
+  gap: 0.45rem;
+}
+
+.page-header--with-actions .collection-manage-btn__label,
+.page-header-actions .edit-mode-toggle__label {
+  display: inline;
+}
+
+.page-header--with-actions .collection-manage-btn__icon {
+  display: none !important;
+}
+
+.edit-mode-toggle.is-active,
 .collection-manage-btn.is-active,
-.collection-manage-edit-btn.is-active {
+.collection-manage-edit-btn.is-active,
+.model-bulk-edit-btn.is-active {
   border-color: rgba(245, 158, 11, 0.55);
   background: rgba(245, 158, 11, 0.12);
   color: var(--accent);
@@ -493,14 +543,13 @@ img {
 
 .page-header--with-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
 
-.page-header--with-actions .btn {
-  flex-shrink: 0;
-  margin-top: 0.15rem;
+.page-header--with-actions .page-header-actions {
+  margin-top: 0;
 }
 
 .stats-row {
@@ -616,20 +665,6 @@ img {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 0.35rem;
   cursor: pointer;
-}
-
-.btn-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  padding: 0;
-}
-
-.model-bulk-edit-btn.is-active {
-  border-color: rgba(245, 158, 11, 0.55);
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--accent);
 }
 
 .model-bulk-page.is-editing .model-card-check {
@@ -2460,9 +2495,8 @@ img {
     align-items: stretch;
   }
 
-  .page-header--with-actions .btn {
+  .page-header--with-actions .page-header-actions {
     align-self: flex-start;
-    margin-top: 0;
   }
 
   .section-header {

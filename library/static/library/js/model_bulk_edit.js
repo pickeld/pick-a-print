@@ -9,8 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const deleteBtn = document.getElementById("bulk-delete-btn");
   const countWrap = document.getElementById("bulk-selection-count");
   const countNumber = document.getElementById("bulk-selection-number");
-  const pencilIcon = editBtn.querySelector(".icon-pencil");
-  const doneIcon = editBtn.querySelector(".icon-done");
+  const editLabel = editBtn.querySelector(".edit-mode-toggle__label");
   const checkboxes = () => Array.from(grid.querySelectorAll('input[name="model_ids"]'));
 
   const clearSelection = () => {
@@ -27,12 +26,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const setEditMode = (enabled) => {
     page.classList.toggle("is-editing", enabled);
     editBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    const editText = editBtn.dataset.labelEdit || "Edit";
+    const doneText = editBtn.dataset.labelDone || "Done";
     editBtn.setAttribute("aria-label", enabled ? "Done editing" : "Edit models");
-    editBtn.setAttribute("title", enabled ? "Done" : "Edit models");
+    editBtn.setAttribute("title", enabled ? doneText : "Edit models");
     editBtn.classList.toggle("is-active", enabled);
-
-    if (pencilIcon) pencilIcon.hidden = enabled;
-    if (doneIcon) doneIcon.hidden = !enabled;
+    if (editLabel) editLabel.textContent = enabled ? doneText : editText;
 
     if (!enabled) {
       clearSelection();

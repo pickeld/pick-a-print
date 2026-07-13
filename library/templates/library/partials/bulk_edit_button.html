@@ -1,16 +1,14 @@
-<button
-  type="button"
-  class="btn btn-icon btn-secondary model-bulk-edit-btn"
-  id="model-bulk-edit-btn"
-  aria-label="Edit models"
-  aria-pressed="false"
-  title="Edit models"
->
-  <svg class="icon-pencil" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 20h9"></path>
-    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-  </svg>
-  <svg class="icon-done" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-    <path d="M20 6 9 17l-5-5"></path>
-  </svg>
-</button>
+<div class="page-header-actions">
+  <button
+    type="button"
+    class="btn btn-ghost edit-mode-toggle model-bulk-edit-btn"
+    id="model-bulk-edit-btn"
+    aria-label="Edit models"
+    aria-pressed="false"
+    title="Edit models"
+    data-label-edit="Edit"
+    data-label-done="Done"
+  >
+    <span class="edit-mode-toggle__label">Edit</span>
+  </button>
+</div>
