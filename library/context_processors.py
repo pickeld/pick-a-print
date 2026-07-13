@@ -1,17 +1,25 @@
 from django.db.models import Count
 
-from library.models import Collection
+from library.models import NO_COLLECTION_SLUG, Collection, uncollected_models_for_user
 
 
 def sidebar_collections(request):
     if not request.user.is_authenticated:
-        return {"sidebar_collections": []}
+        return {
+            "sidebar_collections": [],
+            "sidebar_uncollected_count": 0,
+            "no_collection_slug": NO_COLLECTION_SLUG,
+        }
     collections = (
         Collection.objects.filter(user=request.user)
         .annotate(model_count=Count("models"))
         .order_by("name")[:20]
     )
-    return {"sidebar_collections": collections}
+    return {
+        "sidebar_collections": collections,
+        "sidebar_uncollected_count": uncollected_models_for_user(request.user).count(),
+        "no_collection_slug": NO_COLLECTION_SLUG,
+    }
 
 
 def upload_limits(request):

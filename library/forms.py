@@ -1,7 +1,9 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 
-from library.models import Collection, ModelStatus, SavedModel
+from django.utils.text import slugify
+
+from library.models import NO_COLLECTION_SLUG, Collection, ModelStatus, SavedModel
 
 
 class LoginForm(AuthenticationForm):
@@ -79,6 +81,12 @@ class CollectionForm(forms.ModelForm):
             "name": forms.TextInput(attrs={"placeholder": "Christmas gifts"}),
             "description": forms.Textarea(attrs={"placeholder": "Optional description", "rows": 3}),
         }
+
+    def clean_name(self):
+        name = self.cleaned_data["name"]
+        if slugify(name) == NO_COLLECTION_SLUG:
+            raise forms.ValidationError("That name is reserved.")
+        return name
 
 
 class ModelUpdateForm(forms.ModelForm):

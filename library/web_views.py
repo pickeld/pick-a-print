@@ -11,10 +11,20 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from rest_framework.authtoken.models import Token
 
 from library.forms import CollectionForm, LoginForm, ModelUpdateForm, SaveModelForm, ScanUploadForm, SearchForm, UploadModelForm
-from library.models import Collection, ModelFile, ModelStatus, SavedModel, ScanJob, SiteConfig
+from library.models import (
+    NO_COLLECTION_SLUG,
+    Collection,
+    ModelFile,
+    ModelStatus,
+    SavedModel,
+    ScanJob,
+    SiteConfig,
+    uncollected_models_for_user,
+)
 from library.services import ModelSaveError, save_model_from_upload, save_model_from_url
 from library.scan_services import (
     ScanError,
@@ -210,6 +220,7 @@ def home_view(request):
         .order_by("-created_at")[:12]
     )
     collections = _user_collections(request.user)[:8]
+    uncollected_count = uncollected_models_for_user(request.user).count()
     stats = {
         "total": SavedModel.objects.filter(user=request.user).count(),
         "saved": SavedModel.objects.filter(user=request.user, status=ModelStatus.SAVED).count(),
@@ -218,7 +229,7 @@ def home_view(request):
     return render(
         request,
         "library/home.html",
-        {"recent": recent, "collections": collections, "stats": stats},
+        {"recent": recent, "collections": collections, "uncollected_count": uncollected_count, "stats": stats},
     )
 
 
@@ -601,6 +612,7 @@ def model_files_download_view(request, pk):
 @login_required
 def collections_list_view(request):
     collections = _user_collections(request.user)
+    uncollected_count = uncollected_models_for_user(request.user).count()
     form = CollectionForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
@@ -613,18 +625,35 @@ def collections_list_view(request):
     return render(
         request,
         "library/collections_list.html",
-        {"collections": collections, "form": form},
+        {
+            "collections": collections,
+            "uncollected_count": uncollected_count,
+            "form": form,
+        },
     )
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def collection_detail_view(request, slug):
-    collection = get_object_or_404(Collection, slug=slug, user=request.user)
-    models = collection.models.filter(user=request.user).prefetch_related("tags").order_by("-created_at")
+    if slug == NO_COLLECTION_SLUG:
+        collection = SimpleNamespace(
+            name="No collection",
+            slug=NO_COLLECTION_SLUG,
+            description="Models not assigned to any collection.",
+        )
+        models = (
+            uncollected_models_for_user(request.user)
+            .prefetch_related("tags")
+            .order_by("-created_at")
+        )
+        scoped = uncollected_models_for_user(request.user)
+    else:
+        collection = get_object_or_404(Collection, slug=slug, user=request.user)
+        models = collection.models.filter(user=request.user).prefetch_related("tags").order_by("-created_at")
+        scoped = SavedModel.objects.filter(user=request.user, collections=collection)
 
     if request.method == "POST" and "bulk_delete" in request.POST:
-        scoped = SavedModel.objects.filter(user=request.user, collections=collection)
         if _handle_bulk_delete(request, scoped) is not None:
             return redirect("collection_detail", slug=collection.slug)
         return redirect("collection_detail", slug=collection.slug)

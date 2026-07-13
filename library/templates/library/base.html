@@ -61,6 +61,12 @@
           <a href="{% url 'collections_list' %}" class="nav-link {% if request.resolver_match.url_name == 'collections_list' %}active{% endif %}">
             <span>📚</span> All Collections
           </a>
+          {% if sidebar_uncollected_count %}
+            <a href="{% url 'collection_detail' slug=no_collection_slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == no_collection_slug %}active{% endif %}">
+              <span>📂</span> No collection
+              <span class="count">{{ sidebar_uncollected_count }}</span>
+            </a>
+          {% endif %}
           {% for col in sidebar_collections %}
             <a href="{% url 'collection_detail' slug=col.slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}">
               <span>📁</span> {{ col.name }}

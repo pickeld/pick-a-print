@@ -10,8 +10,15 @@
 
 <div class="collections-page-layout">
   <div>
-    {% if collections %}
+    {% if collections or uncollected_count %}
       <div class="collection-grid">
+        {% if uncollected_count %}
+          <a href="{% url 'collection_detail' slug=no_collection_slug %}" class="collection-card collection-card--uncategorized">
+            <h4>No collection</h4>
+            <p>Models not assigned to any collection</p>
+            <div class="count">{{ uncollected_count }} model{{ uncollected_count|pluralize }}</div>
+          </a>
+        {% endif %}
         {% for col in collections %}
           <a href="{% url 'collection_detail' slug=col.slug %}" class="collection-card">
             <h4>{{ col.name }}</h4>

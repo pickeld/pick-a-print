@@ -3,6 +3,13 @@ from django.db import models
 from django.utils.text import slugify
 
 
+NO_COLLECTION_SLUG = "no-collection"
+
+
+def uncollected_models_for_user(user):
+    return SavedModel.objects.filter(user=user, collections__isnull=True).distinct()
+
+
 class ModelStatus(models.TextChoices):
     SAVED = "saved", "Saved"
     DOWNLOADED = "downloaded", "Downloaded"

@@ -690,6 +690,10 @@ img {
   color: var(--accent);
 }
 
+.collection-card--uncategorized {
+  border-style: dashed;
+}
+
 .collections-page-layout {
   display: grid;
   grid-template-columns: 1fr 320px;
