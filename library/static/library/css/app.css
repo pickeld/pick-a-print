@@ -952,23 +952,6 @@ img {
   overflow: hidden;
 }
 
-.part-card-preview--static {
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.part-card-preview--static .part-card-thumb-icon {
-  color: rgba(248, 250, 252, 0.55);
-  transition: color 0.15s, transform 0.15s;
-}
-
-.part-card--previewable:hover .part-card-thumb-icon,
-.part-card--active .part-card-thumb-icon {
-  color: var(--accent);
-  transform: scale(1.05);
-}
-
 .part-card--active {
   border-color: rgba(245, 158, 11, 0.65);
   box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
@@ -1027,7 +1010,8 @@ img {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 195px;
+  min-height: 100%;
+  pointer-events: none;
   --poster-color: transparent;
   --progress-bar-color: var(--accent);
 }
@@ -1126,18 +1110,22 @@ img {
   position: relative;
 }
 
-.model-parts-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.75rem;
-}
-
 .model-parts-page .parts-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
   margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
-.model-parts-page.is-editing .parts-bulk-bar {
-  display: flex;
+.parts-bulk-heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .parts-bulk-actions {
@@ -1145,6 +1133,12 @@ img {
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
+}
+
+.parts-bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .part-card {
@@ -1156,7 +1150,7 @@ img {
   top: 0.55rem;
   left: 0.55rem;
   z-index: 4;
-  display: none;
+  display: grid;
   place-items: center;
   width: 1.35rem;
   height: 1.35rem;
@@ -1173,23 +1167,13 @@ img {
   cursor: pointer;
 }
 
-.model-parts-page.is-editing .part-card-check {
-  display: grid;
-}
-
-.model-parts-page.is-editing .part-card--selectable {
-  cursor: pointer;
-}
-
 .part-card.is-selected {
   border-color: rgba(245, 158, 11, 0.65);
   box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
 }
 
-.parts-edit-btn.is-active {
-  border-color: rgba(245, 158, 11, 0.55);
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--accent);
+.part-card--previewable {
+  cursor: pointer;
 }
 
 .part-card-actions {

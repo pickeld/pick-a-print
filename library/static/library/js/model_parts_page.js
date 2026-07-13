@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const page = document.getElementById("model-parts-page");
   const grid = document.getElementById("model-parts-grid");
   const form = document.getElementById("parts-bulk-form");
-  const editBtn = document.getElementById("parts-edit-btn");
   if (!page || !grid) return;
 
   const selectAll = document.getElementById("select-all-parts");
@@ -10,8 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const downloadBtn = document.getElementById("parts-download-btn");
   const countWrap = document.getElementById("parts-selection-count");
   const countNumber = document.getElementById("parts-selection-number");
-  const pencilIcon = editBtn?.querySelector(".icon-pencil");
-  const doneIcon = editBtn?.querySelector(".icon-done");
 
   const mainSection = document.getElementById("part-main-viewer");
   const mainViewer = document.getElementById("part-main-viewer-canvas");
@@ -29,6 +26,39 @@ document.addEventListener("DOMContentLoaded", () => {
           errorMessage: "Could not load the 3D preview.",
         })
       : null;
+
+  function bindCardViewer(viewer) {
+    const wrap = viewer.closest(".part-card-preview");
+    const loading = wrap?.querySelector(".part-card-loading");
+    const errorEl = wrap?.querySelector(".part-card-error");
+    if (!loading) return;
+
+    const bar = loading.querySelector(".viewer-load-bar");
+
+    function hideLoading() {
+      loading.classList.add("hidden");
+    }
+
+    function showError() {
+      hideLoading();
+      errorEl?.classList.remove("hidden");
+      viewer.classList.add("hidden");
+    }
+
+    viewer.addEventListener("progress", (event) => {
+      const progress = event.detail?.totalProgress ?? 0;
+      if (bar) bar.style.width = `${Math.min(100, Math.round(progress * 100))}%`;
+    });
+
+    viewer.addEventListener("load", hideLoading);
+    viewer.addEventListener("error", showError);
+
+    window.customElements?.whenDefined("model-viewer").then(() => {
+      if (viewer.loaded) hideLoading();
+    });
+  }
+
+  grid.querySelectorAll(".part-card-preview model-viewer").forEach(bindCardViewer);
 
   function setActivePartCard(fileId) {
     activeFileId = String(fileId);
@@ -57,30 +87,6 @@ document.addEventListener("DOMContentLoaded", () => {
     mainSection?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function clearSelection() {
-    checkboxes().forEach((box) => {
-      box.checked = false;
-    });
-    if (selectAll) {
-      selectAll.checked = false;
-      selectAll.indeterminate = false;
-    }
-    updateSelection();
-  }
-
-  function setEditMode(enabled) {
-    page.classList.toggle("is-editing", enabled);
-    editBtn?.setAttribute("aria-pressed", enabled ? "true" : "false");
-    editBtn?.setAttribute("aria-label", enabled ? "Done selecting" : "Select parts");
-    editBtn?.setAttribute("title", enabled ? "Done" : "Select parts");
-    editBtn?.classList.toggle("is-active", enabled);
-
-    if (pencilIcon) pencilIcon.hidden = enabled;
-    if (doneIcon) doneIcon.hidden = !enabled;
-
-    if (!enabled) clearSelection();
-  }
-
   function updateSelection() {
     const boxes = checkboxes();
     const selected = boxes.filter((box) => box.checked);
@@ -102,10 +108,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  editBtn?.addEventListener("click", () => {
-    setEditMode(!page.classList.contains("is-editing"));
-  });
-
   selectAll?.addEventListener("change", () => {
     const checked = selectAll.checked;
     checkboxes().forEach((box) => {
@@ -124,26 +126,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.target.closest(".part-card-download") || event.target.closest(".part-card-check")) return;
 
     const previewCard = event.target.closest(".part-card--previewable");
-    if (previewCard && !page.classList.contains("is-editing")) {
+    if (previewCard) {
       showInMainViewer(
         previewCard.dataset.previewUrl,
         previewCard.dataset.fileName,
         previewCard.dataset.fileId,
       );
-      return;
     }
-
-    if (!page.classList.contains("is-editing")) return;
-
-    const card = event.target.closest(".part-card--selectable");
-    if (!card) return;
-
-    const box = card.querySelector('input[name="file_ids"]');
-    if (!box) return;
-
-    event.preventDefault();
-    box.checked = !box.checked;
-    updateSelection();
   });
 
   form?.addEventListener("submit", (event) => {
@@ -166,5 +155,5 @@ document.addEventListener("DOMContentLoaded", () => {
     if (mainViewer?.loaded) mainViewerUi?.hideLoading();
   });
 
-  setEditMode(false);
+  updateSelection();
 });
