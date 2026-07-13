@@ -41,9 +41,30 @@ class ScanJobAdmin(admin.ModelAdmin):
 
 @admin.register(SiteConfig)
 class SiteConfigAdmin(admin.ModelAdmin):
-    list_display = ["jetson_enabled", "jetson_host", "has_health_token", "last_test_ok", "last_test_at"]
+    list_display = [
+        "jetson_enabled",
+        "jetson_host",
+        "has_health_token",
+        "has_bambu_lab_token",
+        "has_thingiverse_token",
+        "has_myminifactory_key",
+        "last_test_ok",
+        "last_test_at",
+    ]
     readonly_fields = ["last_test_at", "last_test_ok", "last_test_message"]
 
     @admin.display(boolean=True, description="Health token set")
     def has_health_token(self, obj: SiteConfig) -> bool:
         return bool(obj.jetson_health_token)
+
+    @admin.display(boolean=True, description="Bambu token set")
+    def has_bambu_lab_token(self, obj: SiteConfig) -> bool:
+        return bool(obj.bambu_lab_token)
+
+    @admin.display(boolean=True, description="Thingiverse token set")
+    def has_thingiverse_token(self, obj: SiteConfig) -> bool:
+        return bool(obj.thingiverse_api_token)
+
+    @admin.display(boolean=True, description="MMF key set")
+    def has_myminifactory_key(self, obj: SiteConfig) -> bool:
+        return bool(obj.myminifactory_api_key)
