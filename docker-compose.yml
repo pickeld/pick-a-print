@@ -44,6 +44,8 @@ services:
       - .:/app
       - media_data:/app/media
       - scan_data:/data/jobs
+    extra_hosts:
+      - "jetson.pickel.me:192.168.127.240"
     environment:
       DEBUG: "True"
       SECRET_KEY: dev-docker-secret-change-in-production
@@ -132,6 +134,7 @@ services:
       PIPELINE_DATA_DIR: /data/jobs
       QT_QPA_PLATFORM: offscreen
       COLMAP_MAX_IMAGE_SIZE: ${COLMAP_MAX_IMAGE_SIZE:-1600}
+      FFMPEG_MAX_WIDTH: ${FFMPEG_MAX_WIDTH:-1600}
       COLMAP_SIFT_THREADS: ${COLMAP_SIFT_THREADS:-2}
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/1

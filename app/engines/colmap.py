@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.engines.base import EngineResult, require_binary, run_command
+from app.pipeline.colmap_sparse import best_sparse_model_dir
 from app.pipeline.config import ColmapConfig
 from app.pipeline.hardware import colmap_cuda_available
 
@@ -12,22 +13,7 @@ class ColmapEngine:
         return require_binary("colmap")
 
     def _sparse_model_dir(self, sparse_dir: Path) -> Path | None:
-        """Pick the sparse model with the most registered images (COLMAP may emit fragments)."""
-        models = [p for p in sparse_dir.iterdir() if p.is_dir() and (p / "images.bin").exists()]
-        if not models:
-            return None
-
-        def _registered_images(model_dir: Path) -> int:
-            images_bin = model_dir / "images.bin"
-            try:
-                import struct
-
-                with images_bin.open("rb") as handle:
-                    return struct.unpack("<Q", handle.read(8))[0]
-            except OSError:
-                return 0
-
-        return max(models, key=_registered_images)
+        return best_sparse_model_dir(sparse_dir)
 
     def extract_features(
         self, images_dir: Path, database: Path, config: ColmapConfig
@@ -193,6 +179,8 @@ class ColmapEngine:
             "--output_type",
             "COLMAP",
         ]
+        if config.max_image_size:
+            cmd_undistort += ["--max_image_size", str(config.max_image_size)]
         result = run_command(cmd_undistort, timeout=3600 * 2)
         if not result.ok:
             return result
@@ -207,6 +195,8 @@ class ColmapEngine:
             "--PatchMatchStereo.gpu_index",
             "0",
         ]
+        if config.max_image_size:
+            cmd_stereo += ["--PatchMatchStereo.max_image_size", str(config.max_image_size)]
         result = run_command(cmd_stereo, timeout=3600 * 4)
         if not result.ok:
             return result
@@ -224,6 +214,8 @@ class ColmapEngine:
             "--output_path",
             str(fused),
         ]
+        if config.max_image_size:
+            cmd_fuse += ["--StereoFusion.max_image_size", str(config.max_image_size)]
         result = run_command(cmd_fuse, timeout=3600 * 2)
         if not result.ok:
             return result

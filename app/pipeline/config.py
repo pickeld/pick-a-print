@@ -38,6 +38,17 @@ class FfmpegConfig:
     quality: int = 2  # 1=best, 31=worst
     max_width: int = 1600  # downscale 4K phone video for CPU extraction/COLMAP
 
+    @classmethod
+    def from_env(cls) -> FfmpegConfig:
+        colmap_max = os.getenv("COLMAP_MAX_IMAGE_SIZE")
+        default_width = int(colmap_max) if colmap_max else 1600
+        return cls(
+            fps=float(os.getenv("FFMPEG_FPS", "4.0")),
+            max_frames=int(os.getenv("FFMPEG_MAX_FRAMES", "200")),
+            quality=int(os.getenv("FFMPEG_QUALITY", "2")),
+            max_width=int(os.getenv("FFMPEG_MAX_WIDTH", str(default_width))),
+        )
+
 
 @dataclass
 class ExportConfig:
@@ -60,4 +71,5 @@ class PipelineConfig:
         return cls(
             workspace_root=Path(os.getenv("PIPELINE_DATA_DIR", "./data/jobs")),
             colmap=ColmapConfig.from_env(),
+            ffmpeg=FfmpegConfig.from_env(),
         )

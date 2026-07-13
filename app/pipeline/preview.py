@@ -33,6 +33,8 @@ def build_preview_warnings(
     frame_count: int,
     placeholder_mesh: bool,
     gpu_available: bool,
+    registration_ratio: float | None = None,
+    point_cloud_count: int | None = None,
 ) -> list[str]:
     warnings: list[str] = []
     if placeholder_mesh:
@@ -44,6 +46,16 @@ def build_preview_warnings(
         warnings.append(
             f"Only {frame_count} photo(s) found. Photogrammetry works best with at least 8 "
             "overlapping images from different angles."
+        )
+    if registration_ratio is not None and registration_ratio < 0.7:
+        warnings.append(
+            f"Only {registration_ratio:.0%} of frames aligned in 3D. "
+            "Use a slower, steadier camera orbit with even lighting."
+        )
+    if point_cloud_count is not None and point_cloud_count < 2000:
+        warnings.append(
+            f"Sparse point cloud ({point_cloud_count} points) — mesh detail may be limited. "
+            "GPU dense reconstruction improves results when available."
         )
     if not gpu_available:
         warnings.append(

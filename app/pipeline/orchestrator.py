@@ -150,11 +150,20 @@ class ReconstructionPipeline:
         )
         if not result.ok:
             raise StageError(result.message)
-        report = validate_sparse_model(self.ws.colmap_sparse_dir())
+        frame_count = int(self.job.metadata.get("frame_count") or count_frames(self.ws.frames_dir))
+        report = validate_sparse_model(self.ws.colmap_sparse_dir(), frame_count=frame_count)
+        self.job.metadata["sparse_validation"] = report.metrics
+        self._persist()
         if not report.ok:
             raise StageError(f"Sparse model validation failed: {report.issues}")
 
     def _stage_dense(self) -> None:
+        if self.config.colmap.max_image_size and colmap_cuda_available():
+            self.job.append_log(
+                f"Dense stereo max image size: {self.config.colmap.max_image_size}px",
+                JobStage.DENSE_RECONSTRUCTION,
+            )
+            self._persist()
         result = self.colmap.dense_reconstruction(
             self.ws.colmap_sparse_dir(),
             self.ws.frames_dir,
@@ -199,6 +208,15 @@ class ReconstructionPipeline:
             self._persist()
 
         point_cloud = self._find_point_cloud()
+        point_count = self._count_point_cloud_points(point_cloud)
+        self.job.metadata["point_cloud_count"] = point_count
+        self._persist()
+        if point_count < 500:
+            raise StageError(
+                f"Point cloud too sparse ({point_count} points) for reliable meshing. "
+                "Re-shoot with a slow orbit around the object."
+            )
+
         result = self.colmap.poisson_mesh(point_cloud, mesh_out)
         if not result.ok:
             self.job.append_log(
@@ -265,6 +283,11 @@ class ReconstructionPipeline:
 
         if videos:
             self.job.append_log(f"Using video: {videos[0].name}", JobStage.PREPROCESSING)
+            self.job.append_log(
+                f"Extracting frames at {self.config.ffmpeg.fps} fps, "
+                f"max width {self.config.ffmpeg.max_width}px",
+                JobStage.PREPROCESSING,
+            )
             self._persist()
             result = self.ffmpeg.extract_frames(
                 videos[0],
@@ -321,6 +344,28 @@ class ReconstructionPipeline:
                 return matches[0]
         raise StageError("No mesh found in mesh/ directory")
 
+    def _count_point_cloud_points(self, point_cloud: Path) -> int:
+        try:
+            import trimesh
+
+            loaded = trimesh.load(str(point_cloud))
+            if isinstance(loaded, trimesh.PointCloud):
+                return len(loaded.vertices)
+            if hasattr(loaded, "vertices"):
+                return len(loaded.vertices)
+        except Exception:
+            pass
+
+        try:
+            with point_cloud.open("rb") as handle:
+                header = handle.read(4096).decode("latin-1", errors="ignore")
+            for line in header.splitlines():
+                if line.startswith("element vertex"):
+                    return int(line.split()[-1])
+        except OSError:
+            pass
+        return 0
+
     def _write_report(self) -> None:
         import json
 
@@ -339,6 +384,8 @@ class ReconstructionPipeline:
                 frame_count=frame_count,
                 placeholder_mesh=placeholder,
                 gpu_available=bool(self.job.metadata.get("gpu_available", colmap_cuda_available())),
+                registration_ratio=self.job.metadata.get("sparse_validation", {}).get("registration_ratio"),
+                point_cloud_count=self.job.metadata.get("point_cloud_count"),
             ),
             "outputs": {
                 "ply": str(ply),
