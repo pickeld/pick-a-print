@@ -2,6 +2,35 @@
 
 {% block title %}3D Scan — Pick-a-Print{% endblock %}
 
+{% block head_extra %}
+<script>
+(() => {
+  const form = document.getElementById("scan-upload-form");
+  if (!form) return;
+  const singleMax = {{ scan_max_upload_mb }} * 1024 * 1024;
+  const totalMax = {{ scan_total_max_upload_mb }} * 1024 * 1024;
+  form.addEventListener("submit", (event) => {
+    if (window.__papScanUploadHandled) return;
+    const input = form.querySelector('input[name="files"]');
+    const files = input?.files ? [...input.files] : [];
+    if (!files.length) return;
+    const total = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    const canChunk = files.length === 1 && files[0].size > singleMax && files[0].size <= totalMax;
+    if (!canChunk && total <= singleMax) return;
+    event.preventDefault();
+    const label = document.getElementById("scan-upload-progress-label");
+    const wrap = document.getElementById("scan-upload-progress");
+    if (wrap) wrap.hidden = false;
+    if (label) {
+      label.textContent =
+        "Large uploads need the latest page script. Hard-refresh (Ctrl+Shift+R), or clear the Pick-a-Print site data / service worker, then try again.";
+      label.style.color = "var(--danger, #ef4444)";
+    }
+  }, true);
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>3D Scan</h2>

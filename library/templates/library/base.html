@@ -125,8 +125,8 @@
     </div>
   </div>
 
-  <script src="{% static 'library/js/app.js' %}"></script>
-  <script src="{% static 'library/js/pwa.js' %}"></script>
-  <script src="{% static 'library/js/file_drop.js' %}"></script>
+  <script src="{% static 'library/js/app.js' %}?v={{ static_asset_version }}"></script>
+  <script src="{% static 'library/js/pwa.js' %}?v={{ static_asset_version }}"></script>
+  <script src="{% static 'library/js/file_drop.js' %}?v={{ static_asset_version }}"></script>
 </body>
 </html>

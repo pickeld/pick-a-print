@@ -74,8 +74,7 @@
 
   function canChunkUpload(files) {
     return (
-      cloudflareProxy
-      && scanChunkUrl
+      scanChunkUrl
       && scanChunkCompleteUrl
       && files.length === 1
       && files[0].size > maxScanBytes
@@ -258,7 +257,11 @@
       throw new Error(data.error || `${fallbackLabel} failed`);
     }
     if (result.status === 413) {
-      throw new Error(payloadTooLargeMessage());
+      throw new Error(
+        requestUrl.includes("/chunk/")
+          ? "Upload part was blocked by Cloudflare — hard-refresh the page and try again."
+          : payloadTooLargeMessage(),
+      );
     }
     if (result.status >= 400) {
       throw new Error(`${fallbackLabel} failed (${result.status})`);
@@ -302,6 +305,17 @@
   async function uploadScanChunked(file, progressUi, extraFields = {}) {
     const uploadId = crypto.randomUUID();
     const totalChunks = Math.ceil(file.size / chunkUploadBytes);
+
+    updateProgressUI(
+      progressUi,
+      null,
+      null,
+      `Large file — uploading in ${totalChunks} parts (${Math.round(chunkUploadBytes / (1024 * 1024))} MB each)…`,
+    );
+    setStatus(`Uploading ${file.name} in ${totalChunks} parts…`);
+    if (hintEl) {
+      hintEl.textContent = `${formatBytes(file.size)} · avoids Cloudflare 100 MB limit`;
+    }
 
     for (let index = 0; index < totalChunks; index += 1) {
       const start = index * chunkUploadBytes;
@@ -441,6 +455,7 @@
     scanForm.addEventListener("submit", async (event) => {
       if (scanSubmitBtn.disabled) return;
       event.preventDefault();
+      window.__papScanUploadHandled = true;
 
       const fileInput = scanForm.querySelector('input[name="files"]');
       const files = fileInput?.files ? [...fileInput.files] : [];

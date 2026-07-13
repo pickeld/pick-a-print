@@ -559,6 +559,8 @@ def scan_chunk_upload_view(request):
         )
     except (ScanError, ValueError, TypeError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)
+    except Exception as exc:
+        return JsonResponse({"error": f"Chunk upload failed: {exc}"}, status=500)
     return JsonResponse({"ok": True, "chunk_index": chunk_index})
 
 

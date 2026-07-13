@@ -1,4 +1,4 @@
-const CACHE_VERSION = "pap-v3";
+const CACHE_VERSION = "pap-v4";
 const PRECACHE = [
   "/static/library/css/app.css",
   "/static/library/js/app.js",
@@ -25,6 +25,10 @@ self.addEventListener("activate", (event) => {
       .then(() => self.clients.claim()),
   );
 });
+
+function isStaticJs(url) {
+  return url.pathname.startsWith("/static/library/js/") && url.pathname.endsWith(".js");
+}
 
 function isStaticAsset(url) {
   return url.pathname.startsWith("/static/library/");
@@ -60,6 +64,21 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   if (isStaticAsset(url)) {
+    if (isStaticJs(url)) {
+      event.respondWith(
+        fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+            }
+            return response;
+          })
+          .catch(() => caches.match(request)),
+      );
+      return;
+    }
+
     event.respondWith(
       caches.match(request).then((cached) => {
         const network = fetch(request).then((response) => {
