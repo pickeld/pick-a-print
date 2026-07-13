@@ -9,15 +9,14 @@ function initCollectionManage(root) {
   const bulkForm = root.querySelector("[data-collection-bulk-form]");
   const deleteBtn = root.querySelector("[data-collection-delete-btn]");
   const createPanel = root.querySelector("[data-collection-create-panel]");
-  if (!addBtn || !editBtn) return;
+  if (!addBtn) return;
 
   const addLabel = addBtn.querySelector(".collection-manage-btn__label");
-  const editLabel = editBtn.querySelector(".edit-mode-toggle__label");
-  const pencilIcon = editBtn.querySelector(".icon-pencil");
-  const doneIcon = editBtn.querySelector(".icon-done");
+  const editLabel = editBtn?.querySelector(".edit-mode-toggle__label");
+  const pencilIcon = editBtn?.querySelector(".icon-pencil");
+  const doneIcon = editBtn?.querySelector(".icon-done");
   const checkboxes = () => Array.from(root.querySelectorAll('input[name="collection_ids"]'));
-  const checkLabels = () =>
-    Array.from(root.querySelectorAll(".nav-collection-check, .collection-card-check"));
+  const checkLabels = () => Array.from(root.querySelectorAll(".collection-card-check"));
 
   const clearSelection = () => {
     checkboxes().forEach((box) => {
@@ -35,11 +34,13 @@ function initCollectionManage(root) {
     }
     addBtn.classList.toggle("is-active", open);
     addBtn.setAttribute("aria-pressed", open ? "true" : "false");
-    addBtn.setAttribute("title", open ? (addBtn.dataset.labelClose || "Cancel") : "New collection");
     if (addLabel) {
+      addBtn.setAttribute("title", open ? (addBtn.dataset.labelClose || "Cancel") : "New collection");
       addLabel.textContent = open
         ? (addBtn.dataset.labelClose || "Cancel")
         : (addBtn.dataset.labelOpen || "New");
+    } else {
+      addBtn.setAttribute("title", open ? "Cancel" : "New collection");
     }
     if (open) {
       const nameInput =
@@ -50,6 +51,8 @@ function initCollectionManage(root) {
   };
 
   const setEditMode = (enabled) => {
+    if (!editBtn) return;
+
     root.classList.toggle("is-editing", enabled);
     editBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
     const editText = editBtn.dataset.labelEdit || "Edit";
@@ -94,7 +97,7 @@ function initCollectionManage(root) {
     setCreateOpen(open);
   });
 
-  editBtn.addEventListener("click", () => {
+  editBtn?.addEventListener("click", () => {
     setEditMode(!root.classList.contains("is-editing"));
   });
 
@@ -105,12 +108,6 @@ function initCollectionManage(root) {
   });
 
   root.addEventListener("click", (event) => {
-    const checkLabel = event.target.closest(".nav-collection-check, .collection-card-check");
-    if (checkLabel && !root.classList.contains("is-editing")) {
-      event.preventDefault();
-      return;
-    }
-
     if (!root.classList.contains("is-editing")) return;
 
     const link = event.target.closest("[data-collection-link]");
