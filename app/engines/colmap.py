@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from app.engines.base import EngineResult, require_binary, run_command
@@ -16,7 +17,11 @@ class ColmapEngine:
         return best_sparse_model_dir(sparse_dir)
 
     def extract_features(
-        self, images_dir: Path, database: Path, config: ColmapConfig
+        self,
+        images_dir: Path,
+        database: Path,
+        config: ColmapConfig,
+        on_line: Callable[[str], None] | None = None,
     ) -> EngineResult:
         database.parent.mkdir(parents=True, exist_ok=True)
         colmap = self._colmap()
@@ -39,9 +44,14 @@ class ColmapEngine:
             cmd += ["--SiftExtraction.max_image_size", str(config.max_image_size)]
         if not config.use_gpu and config.sift_threads > 0:
             cmd += ["--SiftExtraction.num_threads", str(config.sift_threads)]
-        return run_command(cmd, timeout=3600 * 2)
+        return run_command(cmd, timeout=3600 * 2, on_line=on_line)
 
-    def match_features(self, database: Path, config: ColmapConfig) -> EngineResult:
+    def match_features(
+        self,
+        database: Path,
+        config: ColmapConfig,
+        on_line: Callable[[str], None] | None = None,
+    ) -> EngineResult:
         colmap = self._colmap()
         if not colmap:
             return EngineResult(False, "colmap not found in PATH")
@@ -55,7 +65,7 @@ class ColmapEngine:
             "--SiftMatching.use_gpu",
             "1" if config.use_gpu else "0",
         ]
-        return run_command(cmd, timeout=3600 * 2)
+        return run_command(cmd, timeout=3600 * 2, on_line=on_line)
 
     def map_sparse(
         self,
@@ -63,6 +73,7 @@ class ColmapEngine:
         images_dir: Path,
         sparse_dir: Path,
         config: ColmapConfig,
+        on_line: Callable[[str], None] | None = None,
     ) -> EngineResult:
         sparse_dir.mkdir(parents=True, exist_ok=True)
         colmap = self._colmap()
@@ -79,7 +90,7 @@ class ColmapEngine:
             "--output_path",
             str(sparse_dir),
         ]
-        return run_command(cmd, timeout=3600 * 4)
+        return run_command(cmd, timeout=3600 * 4, on_line=on_line)
 
     def export_sparse_pointcloud(self, sparse_dir: Path, output_ply: Path) -> EngineResult:
         """Export sparse reconstruction as PLY (CPU fallback when dense/CUDA unavailable)."""
@@ -145,6 +156,8 @@ class ColmapEngine:
         images_dir: Path,
         dense_dir: Path,
         config: ColmapConfig,
+        on_line: Callable[[str], None] | None = None,
+        on_dense_substep: Callable[[str], None] | None = None,
     ) -> EngineResult:
         dense_dir.mkdir(parents=True, exist_ok=True)
 
@@ -181,7 +194,9 @@ class ColmapEngine:
         ]
         if config.max_image_size:
             cmd_undistort += ["--max_image_size", str(config.max_image_size)]
-        result = run_command(cmd_undistort, timeout=3600 * 2)
+        if on_dense_substep:
+            on_dense_substep("undistort")
+        result = run_command(cmd_undistort, timeout=3600 * 2, on_line=on_line)
         if not result.ok:
             return result
 
@@ -197,7 +212,9 @@ class ColmapEngine:
         ]
         if config.max_image_size:
             cmd_stereo += ["--PatchMatchStereo.max_image_size", str(config.max_image_size)]
-        result = run_command(cmd_stereo, timeout=3600 * 4)
+        if on_dense_substep:
+            on_dense_substep("patch_match")
+        result = run_command(cmd_stereo, timeout=3600 * 4, on_line=on_line)
         if not result.ok:
             return result
 
@@ -216,7 +233,9 @@ class ColmapEngine:
         ]
         if config.max_image_size:
             cmd_fuse += ["--StereoFusion.max_image_size", str(config.max_image_size)]
-        result = run_command(cmd_fuse, timeout=3600 * 2)
+        if on_dense_substep:
+            on_dense_substep("fusion")
+        result = run_command(cmd_fuse, timeout=3600 * 2, on_line=on_line)
         if not result.ok:
             return result
         return EngineResult(True, "dense reconstruction complete", [fused])

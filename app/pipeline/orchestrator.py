@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from app.engines.openmvs import OpenMvsEngine
 from app.engines.trimesh_engine import TrimeshEngine
 from app.models.enums import JobStage, PIPELINE_STAGES
 from app.models.job import Job
+from app.pipeline.colmap_progress import ColmapProgressReporter, DENSE_SUBSTEP_RANGES
 from app.pipeline.config import PipelineConfig
 from app.pipeline.hardware import colmap_cuda_available, openmvs_available
 from app.pipeline.preview import build_preview_warnings, count_frames, is_placeholder_mesh
@@ -51,6 +53,43 @@ class ReconstructionPipeline:
         self.job.save(self.config.workspace_root)
         if self._on_checkpoint is not None:
             self._on_checkpoint(self.job)
+
+    def _colmap_on_line(self, stage: JobStage, reporter: ColmapProgressReporter) -> Callable[[str], None]:
+        last_persist = 0.0
+        last_sub_progress = -1.0
+
+        def on_line(line: str) -> None:
+            nonlocal last_persist, last_sub_progress
+            message, sub_progress = reporter.feed_line(line)
+            should_persist = False
+            if message:
+                self.job.append_log(message, stage)
+                should_persist = True
+            if sub_progress is not None:
+                self.job.touch(stage, completed=False, sub_progress=sub_progress)
+                now = time.monotonic()
+                if (
+                    sub_progress - last_sub_progress >= 0.02
+                    or now - last_persist >= 5.0
+                    or message is not None
+                ):
+                    should_persist = True
+                    last_sub_progress = sub_progress
+                    last_persist = now
+            if should_persist:
+                self._persist()
+
+        return on_line
+
+    def _colmap_dense_substep(self, reporter: ColmapProgressReporter) -> Callable[[str], None]:
+        def on_dense_substep(name: str) -> None:
+            label = reporter.set_dense_substep(name)
+            start, _ = DENSE_SUBSTEP_RANGES.get(name, (0.0, 1.0))
+            self.job.append_log(label, JobStage.DENSE_RECONSTRUCTION)
+            self.job.touch(JobStage.DENSE_RECONSTRUCTION, completed=False, sub_progress=start)
+            self._persist()
+
+        return on_dense_substep
 
     def run(self, from_stage: JobStage | None = None) -> Job:
         self.ws.ensure_dirs()
@@ -125,28 +164,34 @@ class ReconstructionPipeline:
         if not colmap_cuda_available():
             self.job.append_log("CUDA unavailable — using CPU SIFT extraction", JobStage.COLMAP_FEATURES)
             self._persist()
+        reporter = ColmapProgressReporter(JobStage.COLMAP_FEATURES)
         result = self.colmap.extract_features(
             self.ws.frames_dir,
             self.ws.colmap_database(),
             self.config.colmap,
+            on_line=self._colmap_on_line(JobStage.COLMAP_FEATURES, reporter),
         )
         if not result.ok:
             raise StageError(result.message)
 
     def _stage_colmap_matching(self) -> None:
+        reporter = ColmapProgressReporter(JobStage.COLMAP_MATCHING)
         result = self.colmap.match_features(
             self.ws.colmap_database(),
             self.config.colmap,
+            on_line=self._colmap_on_line(JobStage.COLMAP_MATCHING, reporter),
         )
         if not result.ok:
             raise StageError(result.message)
 
     def _stage_colmap_mapping(self) -> None:
+        reporter = ColmapProgressReporter(JobStage.COLMAP_MAPPING)
         result = self.colmap.map_sparse(
             self.ws.colmap_database(),
             self.ws.frames_dir,
             self.ws.colmap_sparse_dir(),
             self.config.colmap,
+            on_line=self._colmap_on_line(JobStage.COLMAP_MAPPING, reporter),
         )
         if not result.ok:
             raise StageError(result.message)
@@ -164,11 +209,14 @@ class ReconstructionPipeline:
                 JobStage.DENSE_RECONSTRUCTION,
             )
             self._persist()
+        reporter = ColmapProgressReporter(JobStage.DENSE_RECONSTRUCTION)
         result = self.colmap.dense_reconstruction(
             self.ws.colmap_sparse_dir(),
             self.ws.frames_dir,
             self.ws.colmap_dense_dir(),
             self.config.colmap,
+            on_line=self._colmap_on_line(JobStage.DENSE_RECONSTRUCTION, reporter),
+            on_dense_substep=self._colmap_dense_substep(reporter),
         )
         if not result.ok:
             raise StageError(result.message)
