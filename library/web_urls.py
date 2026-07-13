@@ -20,6 +20,7 @@ urlpatterns = [
     path("models/<int:pk>/preview/<int:file_id>/", web_views.model_preview_view, name="model_preview"),
     path("models/<int:pk>/files/download/", web_views.model_files_download_view, name="model_files_download"),
     path("collections/", web_views.collections_list_view, name="collections_list"),
+    path("collections/bulk-delete/", web_views.collections_bulk_delete_view, name="collections_bulk_delete"),
     path("collections/<slug:slug>/", web_views.collection_detail_view, name="collection_detail"),
     path("scan/", web_views.scan_list_view, name="scan_list"),
     path("scan/chunk/", web_views.scan_chunk_upload_view, name="scan_chunk_upload"),

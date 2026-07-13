@@ -56,8 +56,49 @@
           </a>
         </div>
 
-        <div class="nav-section">
-          <div class="nav-section-title">Collections</div>
+        <div class="nav-section nav-section--collections" id="sidebar-collections" data-collection-manage>
+          <div class="nav-section-header">
+            <div class="nav-section-title">Collections</div>
+            {% include "library/partials/collection_manage_buttons.html" %}
+          </div>
+
+          <form
+            method="post"
+            action="{% url 'collections_list' %}"
+            class="sidebar-collection-create"
+            data-collection-create-form
+            hidden
+          >
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <input type="text" name="name" placeholder="Collection name" required maxlength="200" aria-label="Collection name">
+            <button type="submit" class="btn btn-primary btn-sm">Create</button>
+          </form>
+
+          <form
+            method="post"
+            action="{% url 'collections_bulk_delete' %}"
+            id="sidebar-collection-bulk-form"
+            class="sidebar-collection-bulk"
+            data-collection-bulk-form
+            hidden
+          >
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <span class="sidebar-collection-bulk-count" data-collection-selection-count hidden>
+              <span data-collection-selection-number>0</span> selected
+            </span>
+            <button
+              type="submit"
+              class="btn btn-danger btn-sm"
+              data-collection-delete-btn
+              disabled
+              data-confirm="Delete the selected collections? Models will be kept in your library."
+            >
+              Delete
+            </button>
+          </form>
+
           <a href="{% url 'collections_list' %}" class="nav-link {% if request.resolver_match.url_name == 'collections_list' %}active{% endif %}">
             <span>📚</span> All Collections
           </a>
@@ -68,10 +109,19 @@
             </a>
           {% endif %}
           {% for col in sidebar_collections %}
-            <a href="{% url 'collection_detail' slug=col.slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}">
-              <span>📁</span> {{ col.name }}
-              <span class="count">{{ col.model_count }}</span>
-            </a>
+            <div class="nav-collection-item" data-collection-item>
+              <label class="nav-collection-check" aria-label="Select {{ col.name }}">
+                <input type="checkbox" name="collection_ids" value="{{ col.pk }}" form="sidebar-collection-bulk-form">
+              </label>
+              <a
+                href="{% url 'collection_detail' slug=col.slug %}"
+                class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}"
+                data-collection-link
+              >
+                <span>📁</span> {{ col.name }}
+                <span class="count">{{ col.model_count }}</span>
+              </a>
+            </div>
           {% endfor %}
         </div>
       </nav>
@@ -132,6 +182,7 @@
   </div>
 
   <script src="{% static 'library/js/app.js' %}?v={{ static_asset_version }}"></script>
+  <script src="{% static 'library/js/collection_manage.js' %}?v={{ static_asset_version }}"></script>
   <script src="{% static 'library/js/pwa.js' %}?v={{ static_asset_version }}"></script>
   <script src="{% static 'library/js/file_drop.js' %}?v={{ static_asset_version }}"></script>
 </body>

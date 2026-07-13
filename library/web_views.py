@@ -129,6 +129,20 @@ def _user_collections(user):
     return Collection.objects.filter(user=user).annotate(model_count=Count("models"))
 
 
+def _parse_collection_ids(request):
+    try:
+        return [int(value) for value in request.POST.getlist("collection_ids")]
+    except ValueError:
+        return None
+
+
+def _redirect_after_collection_action(request, fallback="collections_list"):
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER")
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return redirect(next_url)
+    return redirect(fallback)
+
+
 def _parse_bulk_delete_ids(request):
     try:
         return [int(value) for value in request.POST.getlist("model_ids")]
@@ -620,7 +634,7 @@ def collections_list_view(request):
         collection.user = request.user
         collection.save()
         messages.success(request, f'Collection "{collection.name}" created.')
-        return redirect("collection_detail", slug=collection.slug)
+        return _redirect_after_collection_action(request, fallback=reverse("collection_detail", kwargs={"slug": collection.slug}))
 
     return render(
         request,
@@ -631,6 +645,30 @@ def collections_list_view(request):
             "form": form,
         },
     )
+
+
+@login_required
+@require_http_methods(["POST"])
+def collections_bulk_delete_view(request):
+    collection_ids = _parse_collection_ids(request)
+    if collection_ids is None:
+        messages.error(request, "Invalid selection.")
+        return _redirect_after_collection_action(request)
+
+    if not collection_ids:
+        messages.error(request, "Select at least one collection to delete.")
+        return _redirect_after_collection_action(request)
+
+    to_delete = Collection.objects.filter(user=request.user, pk__in=collection_ids)
+    count = to_delete.count()
+    if count == 0:
+        messages.error(request, "No matching collections found.")
+        return _redirect_after_collection_action(request)
+
+    to_delete.delete()
+    label = "collection" if count == 1 else "collections"
+    messages.success(request, f"Deleted {count} {label}. Models were kept in your library.")
+    return _redirect_after_collection_action(request)
 
 
 @login_required
