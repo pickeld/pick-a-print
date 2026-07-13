@@ -68,7 +68,7 @@ services:
       CLOUDFLARE_MAX_UPLOAD_MB: "100"
       SCAN_MAX_UPLOAD_MB: "200"
       CHUNK_UPLOAD_SIZE_MB: "25"
-      STATIC_ASSET_VERSION: "6"
+      STATIC_ASSET_VERSION: "7"
     depends_on:
       db:
         condition: service_healthy

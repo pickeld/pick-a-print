@@ -6,6 +6,8 @@
 {% block head_extra %}
 {% if active_tab == 'about' %}
 <script src="{% static 'library/js/about.js' %}" defer></script>
+{% elif active_tab == 'downloads' %}
+<script src="{% static 'library/js/download_integrations.js' %}" defer></script>
 {% elif active_tab == 'scan' %}
 <script src="{% static 'library/js/scan_worker.js' %}" defer></script>
 {% endif %}
