@@ -64,11 +64,6 @@ def canonicalize_model_url(url: str) -> str:
         if match:
             path = match.group(1)
 
-    if "myminifactory.com" in host:
-        match = re.match(r"^(/object/[\w-]+-\d+)", path) or re.match(r"^(/object/\d+)", path)
-        if match:
-            path = match.group(1)
-
     if "thangs.com" in host:
         match = re.match(r"^(/m/\d+)", path)
         if match:

@@ -14,7 +14,7 @@ API URL and token are pre-configured in the download.
 ## Ways to save
 
 - **Save current tab** — extension popup → orange button
-- **Floating button** — on Printables, MakerWorld, Thangs, Thingiverse, MyMiniFactory, Cults3D
+- **Floating button** — on Printables, MakerWorld, Thangs, Thingiverse, Cults3D
 
 ## Developer load (without download)
 

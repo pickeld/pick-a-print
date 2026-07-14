@@ -5,7 +5,6 @@ from library.adapters.sites import (
     Cults3dAdapter,
     GenericOpenGraphAdapter,
     MakerWorldAdapter,
-    MyMiniFactoryAdapter,
     PrintablesAdapter,
     ThangsAdapter,
     ThingiverseAdapter,
@@ -16,7 +15,6 @@ _ADAPTERS: list[SourceAdapter] = [
     MakerWorldAdapter(),
     ThangsAdapter(),
     ThingiverseAdapter(),
-    MyMiniFactoryAdapter(),
     Cults3dAdapter(),
     GenericOpenGraphAdapter(),
 ]

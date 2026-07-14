@@ -191,11 +191,7 @@ def repair_model_display_fields(model: SavedModel) -> bool:
     parsed_title = raw_title
     parsed_designer = designer
 
-    if "myminifactory" in site or platform == "myminifactory":
-        from library.adapters.sites import MyMiniFactoryAdapter
-
-        parsed_title, parsed_designer = MyMiniFactoryAdapter()._parse_mmf_title(raw_title)
-    elif "printables" in site or platform == "printables":
+    if "printables" in site or platform == "printables":
         from library.adapters.sites import PrintablesAdapter
 
         parsed_title, parsed_designer = PrintablesAdapter()._parse_printables_title(raw_title)

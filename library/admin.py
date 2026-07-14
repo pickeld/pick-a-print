@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag, UserBambuCloudAuth, UserMyMiniFactoryAuth
+from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag, UserBambuCloudAuth
 
 
 @admin.register(ModelFile)
@@ -47,7 +47,6 @@ class SiteConfigAdmin(admin.ModelAdmin):
         "has_health_token",
         "has_bambu_lab_token",
         "has_thingiverse_token",
-        "has_myminifactory_key",
         "last_test_ok",
         "last_test_at",
     ]
@@ -65,20 +64,9 @@ class SiteConfigAdmin(admin.ModelAdmin):
     def has_thingiverse_token(self, obj: SiteConfig) -> bool:
         return bool(obj.thingiverse_api_token)
 
-    @admin.display(boolean=True, description="MMF key set")
-    def has_myminifactory_key(self, obj: SiteConfig) -> bool:
-        return bool(obj.myminifactory_api_key)
-
 
 @admin.register(UserBambuCloudAuth)
 class UserBambuCloudAuthAdmin(admin.ModelAdmin):
     list_display = ["user", "bambu_name", "bambu_email", "region", "updated_at"]
     search_fields = ["user__username", "bambu_name", "bambu_email", "bambu_uid"]
-    readonly_fields = ["updated_at"]
-
-
-@admin.register(UserMyMiniFactoryAuth)
-class UserMyMiniFactoryAuthAdmin(admin.ModelAdmin):
-    list_display = ["user", "username", "mmf_user_id", "updated_at"]
-    search_fields = ["user__username", "username", "mmf_user_id"]
     readonly_fields = ["updated_at"]

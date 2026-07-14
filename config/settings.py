@@ -183,9 +183,6 @@ DOWNLOAD_ALLOWED_HOSTS = tuple(
                 "api.thingiverse.com",
                 "cdn.thingiverse.com",
                 "*.thingiverse.com",
-                "www.myminifactory.com",
-                "myminifactory.com",
-                "*.myminifactory.com",
                 "makerworld.com",
                 "*.makerworld.com",
                 "public-cdn.bblmw.com",
@@ -199,7 +196,6 @@ DOWNLOAD_ALLOWED_HOSTS = tuple(
 
 THINGIVERSE_API_TOKEN = os.getenv("THINGIVERSE_API_TOKEN", "")
 BAMBU_LAB_TOKEN = os.getenv("BAMBU_LAB_TOKEN", "")
-MYMINIFACTORY_API_KEY = os.getenv("MYMINIFACTORY_API_KEY", "")
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"

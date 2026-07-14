@@ -1696,7 +1696,6 @@ body.collection-modal-open {
 .integration-card--thangs { --brand-color: #7c6cf0; --brand-glow: rgba(124, 108, 240, 0.18); }
 .integration-card--makerworld { --brand-color: #00ae42; --brand-glow: rgba(0, 174, 66, 0.18); }
 .integration-card--thingiverse { --brand-color: #2dadfc; --brand-glow: rgba(45, 173, 252, 0.18); }
-.integration-card--myminifactory { --brand-color: #e91e8c; --brand-glow: rgba(233, 30, 140, 0.18); }
 .integration-card--cults3d { --brand-color: #e74c3c; --brand-glow: rgba(231, 76, 60, 0.18); }
 
 @media (max-width: 720px) {

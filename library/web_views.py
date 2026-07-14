@@ -2,7 +2,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.db.models import Count, Q
 from django.contrib.staticfiles import finders
 from django.http import FileResponse, HttpResponse, JsonResponse
@@ -57,7 +56,7 @@ from library.scan_worker import (
     validate_jetson_health_token,
     validate_jetson_host,
 )
-from library.provider_credentials import bambu_lab_token, myminifactory_api_key, thingiverse_api_token
+from library.provider_credentials import bambu_lab_token, thingiverse_api_token
 from library.bambu_cloud import (
     BambuCloudAuthError,
     clear_user_cloud_auth,
@@ -67,22 +66,6 @@ from library.bambu_cloud import (
     validate_access_token,
     verify_email_code,
     verify_totp,
-)
-from library.myminifactory_oauth import (
-    MMF_OAUTH_STATE_SESSION_KEY,
-    MyMiniFactoryAuthError,
-    app_credentials_configured,
-    auth_status as mmf_auth_status,
-    build_authorize_url,
-    clear_user_auth as clear_mmf_auth,
-    client_key,
-    client_secret,
-    exchange_authorization_code,
-    new_oauth_state,
-    oauth_callback_url,
-    save_user_auth as save_mmf_auth,
-    user_access_token as mmf_user_access_token,
-    validate_access_token as validate_mmf_access_token,
 )
 
 BAMBU_CLOUD_SESSION_KEY = "bambu_cloud_pending"
@@ -122,8 +105,6 @@ def _apply_download_integration_fields(config: SiteConfig, payload: dict) -> Non
     token_fields = (
         "thingiverse_api_token",
         "bambu_lab_token",
-        "myminifactory_api_key",
-        "myminifactory_client_secret",
     )
     for field_name in token_fields:
         if field_name not in payload:
@@ -140,14 +121,6 @@ def _download_integrations_status(user=None) -> list[dict]:
         makerworld_note = "Connected via Bambu Cloud login"
     elif makerworld_configured:
         makerworld_note = "Session token or site-wide credential configured"
-
-    mmf_connected = bool(user and mmf_user_access_token(user))
-    if mmf_connected:
-        mmf_note = f"Connected as {mmf_auth_status(user).get('username', 'MyMiniFactory account')}"
-    elif app_credentials_configured():
-        mmf_note = "App slug saved — connect your MyMiniFactory account"
-    else:
-        mmf_note = "Create a developer app on MyMiniFactory"
 
     return [
         {
@@ -216,25 +189,6 @@ def _download_integrations_status(user=None) -> list[dict]:
                 "Leave the field blank when saving to keep the existing token."
             ),
             "expand": False,
-            "has_test": True,
-            "has_config": True,
-        },
-        {
-            "id": "myminifactory",
-            "site": "MyMiniFactory",
-            "initial": "MF",
-            "icon": "library/icons/integrations/myminifactory.svg",
-            "color": "#e91e8c",
-            "status": "configured" if mmf_connected else "needs_token",
-            "note": mmf_note,
-            "summary": "Automatic downloads from MyMiniFactory",
-            "help": (
-                "Create a developer app at myminifactory.com/pages/for-developers. Save the app slug "
-                "(client key, e.g. pick_a_print) below. MMF no longer shows a client secret — register "
-                "this redirect URI exactly in your MMF app, then click Connect MyMiniFactory to authorize "
-                "file downloads."
-            ),
-            "expand": not mmf_connected,
             "has_test": True,
             "has_config": True,
         },
@@ -541,14 +495,9 @@ def settings_view(request):
         context["download_config"] = {
             "thingiverse_api_token": bool(config.thingiverse_api_token),
             "bambu_lab_token": bool(config.bambu_lab_token),
-            "myminifactory_api_key": bool(config.myminifactory_api_key),
-            "myminifactory_client_secret": bool(config.myminifactory_client_secret),
         }
         context["bambu_cloud_status"] = cloud_auth_status(request.user)
         context["bambu_cloud_status_json"] = json.dumps(context["bambu_cloud_status"])
-        context["mmf_oauth_status"] = mmf_auth_status(request.user)
-        context["mmf_oauth_status_json"] = json.dumps(context["mmf_oauth_status"])
-        context["mmf_oauth_callback_url"] = oauth_callback_url(request)
         context["integrations_flash"] = request.session.pop("integrations_flash", None)
 
     if active_tab == "scan":
@@ -610,8 +559,6 @@ def download_integrations_save_view(request):
             "saved": {
                 "thingiverse_api_token": bool(config.thingiverse_api_token),
                 "bambu_lab_token": bool(config.bambu_lab_token),
-                "myminifactory_api_key": bool(config.myminifactory_api_key),
-                "myminifactory_client_secret": bool(config.myminifactory_client_secret),
             },
         }
     )
@@ -753,172 +700,6 @@ def bambu_cloud_logout_view(request):
 
 @login_required
 @require_http_methods(["POST"])
-def mmf_oauth_start_view(request):
-    if not app_credentials_configured():
-        return JsonResponse(
-            {
-                "ok": False,
-                "message": "Save your MyMiniFactory app slug first.",
-            },
-            status=400,
-        )
-
-    state = new_oauth_state()
-    request.session[MMF_OAUTH_STATE_SESSION_KEY] = state
-    redirect_uri = oauth_callback_url(request)
-    authorize_url = build_authorize_url(
-        client_id=client_key(),
-        redirect_uri=redirect_uri,
-        state=state,
-    )
-    return JsonResponse(
-        {
-            "ok": True,
-            "authorize_url": authorize_url,
-            "callback_url": redirect_uri,
-        }
-    )
-
-
-@login_required
-@ensure_csrf_cookie
-def mmf_oauth_callback_view(request):
-    settings_url = "/settings/?tab=integrations"
-
-    error = str(request.GET.get("error", "")).strip()
-    if error:
-        description = str(request.GET.get("error_description", "")).strip()
-        message = description or error.replace("_", " ")
-        request.session["integrations_flash"] = {
-            "integration": "myminifactory",
-            "tone": "fail",
-            "message": f"MyMiniFactory authorization failed: {message}",
-        }
-        return redirect(settings_url)
-
-    code = str(request.GET.get("code", "")).strip()
-    if code:
-        state = str(request.GET.get("state", "")).strip()
-        expected_state = str(request.session.pop(MMF_OAUTH_STATE_SESSION_KEY, "") or "").strip()
-        if not state or not expected_state or state != expected_state:
-            request.session["integrations_flash"] = {
-                "integration": "myminifactory",
-                "tone": "fail",
-                "message": "MyMiniFactory authorization expired or was invalid. Try connecting again.",
-            }
-            return redirect(settings_url)
-
-        secret = client_secret()
-        if not secret:
-            request.session["integrations_flash"] = {
-                "integration": "myminifactory",
-                "tone": "fail",
-                "message": (
-                    "MyMiniFactory returned an authorization code, but no OAuth client secret is saved. "
-                    "Save your legacy API key UUID in Settings if MMF provided one, or contact support."
-                ),
-            }
-            return redirect(settings_url)
-
-        redirect_uri = oauth_callback_url(request)
-        try:
-            token_data = exchange_authorization_code(
-                client_id=client_key(),
-                client_secret_value=secret,
-                code=code,
-                redirect_uri=redirect_uri,
-            )
-            profile = validate_mmf_access_token(str(token_data["access_token"]))
-            save_mmf_auth(request.user, token_data=token_data, profile=profile)
-        except MyMiniFactoryAuthError as exc:
-            request.session["integrations_flash"] = {
-                "integration": "myminifactory",
-                "tone": "fail",
-                "message": str(exc),
-            }
-            return redirect(settings_url)
-
-        username = profile.get("username") or profile.get("name") or "your account"
-        request.session["integrations_flash"] = {
-            "integration": "myminifactory",
-            "tone": "ok",
-            "message": f"Connected to MyMiniFactory as {username}.",
-        }
-        return redirect(settings_url)
-
-    expected_state = str(request.session.get(MMF_OAUTH_STATE_SESSION_KEY, "") or "").strip()
-    response = render(
-        request,
-        "library/mmf_oauth_callback.html",
-        {
-            "mmf_oauth_config": {
-                "complete_url": request.build_absolute_uri(reverse("mmf_oauth_complete")),
-                "settings_url": settings_url,
-                "expected_state": expected_state,
-            },
-        },
-    )
-    response["Cache-Control"] = "no-store"
-    return response
-
-
-@login_required
-@require_http_methods(["POST"])
-def mmf_oauth_complete_view(request):
-    settings_url = "/settings/?tab=integrations"
-
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return JsonResponse({"ok": False, "error": "Invalid request payload."}, status=400)
-
-    state = str(payload.get("state", "")).strip()
-    expected_state = str(request.session.pop(MMF_OAUTH_STATE_SESSION_KEY, "") or "").strip()
-    if not state or not expected_state or state != expected_state:
-        return JsonResponse(
-            {"ok": False, "error": "OAuth state mismatch. Start the connection again from Settings."},
-            status=400,
-        )
-
-    access_token = str(payload.get("access_token", "")).strip()
-    if not access_token:
-        return JsonResponse({"ok": False, "error": "No access token returned from MyMiniFactory."}, status=400)
-
-    expires_in = int(payload.get("expires_in") or 0)
-    token_data = {"access_token": access_token, "expires_in": expires_in}
-
-    try:
-        profile = validate_mmf_access_token(access_token)
-        save_mmf_auth(request.user, token_data=token_data, profile=profile)
-    except MyMiniFactoryAuthError as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
-
-    username = profile.get("username") or profile.get("name") or "your account"
-    request.session["integrations_flash"] = {
-        "integration": "myminifactory",
-        "tone": "ok",
-        "message": f"Connected to MyMiniFactory as {username}.",
-    }
-    return JsonResponse({"ok": True, "redirect": settings_url, "message": f"Connected as {username}."})
-
-
-@login_required
-@require_http_methods(["POST"])
-def mmf_oauth_logout_view(request):
-    clear_mmf_auth(request.user)
-    request.session.pop(MMF_OAUTH_STATE_SESSION_KEY, None)
-    return JsonResponse(
-        {
-            "ok": True,
-            "message": "Disconnected from MyMiniFactory.",
-            "mmf_status": mmf_auth_status(request.user),
-            "integrations": _download_integrations_status(request.user),
-        }
-    )
-
-
-@login_required
-@require_http_methods(["POST"])
 def scan_worker_save_view(request):
     config = SiteConfig.get()
     payload = _parse_scan_worker_payload(request)
@@ -1010,15 +791,25 @@ def model_detail_view(request, pk):
             return redirect("model_detail", pk=model.pk)
 
         if "retry_download" in request.POST and model.source_type == SourceType.LINK and not model.files.exists():
-            from library.services import _queue_model_download
+            from library.model_download import download_files_for_model
 
             meta = model.metadata or {}
             meta["download_status"] = "pending"
             meta.pop("download_error", None)
             model.metadata = meta
             model.save(update_fields=["metadata", "updated_at"])
-            _queue_model_download(model.id)
-            messages.info(request, "Retrying download from the source site…")
+
+            result = download_files_for_model(model)
+            status = result.get("status", "failed")
+            if status == "complete":
+                messages.success(request, "Model files downloaded.")
+            else:
+                meta = model.metadata or {}
+                meta["download_status"] = status
+                meta["download_error"] = result.get("error") or "Download failed."
+                model.metadata = meta
+                model.save(update_fields=["metadata", "updated_at"])
+                messages.error(request, meta["download_error"])
             return redirect("model_detail", pk=model.pk)
 
         if "delete" in request.POST:

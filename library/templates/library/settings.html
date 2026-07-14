@@ -9,7 +9,6 @@
 {% elif active_tab == 'downloads' %}
 <script src="{% static 'library/js/integrations.js' %}" defer></script>
 <script src="{% static 'library/js/bambu_cloud.js' %}" defer></script>
-<script src="{% static 'library/js/mmf_oauth.js' %}" defer></script>
 {% elif active_tab == 'scan' %}
 <script src="{% static 'library/js/scan_worker.js' %}" defer></script>
 {% elif active_tab == 'api' %}
@@ -226,89 +225,13 @@
           </div>
         </div>
 
-        {% elif integration.id == 'myminifactory' %}
-        <div
-          id="mmf-oauth-panel"
-          class="mmf-oauth-panel integration-panel-section"
-          data-start-url="{% url 'mmf_oauth_start' %}"
-          data-logout-url="{% url 'mmf_oauth_logout' %}"
-        >
-          <div class="integration-section-label">
-            <span class="mdi mdi-account-key" aria-hidden="true"></span>
-            MyMiniFactory account
-            <span class="integration-section-tag">Required for downloads</span>
-          </div>
-
-          <div id="mmf-oauth-connected" class="integration-account-card hidden">
-            <span class="integration-logo integration-logo--sm" style="--brand-color: {{ integration.color }}">
-              <img src="{% static integration.icon %}" alt="" width="22" height="22">
-            </span>
-            <div class="integration-account-info">
-              <strong id="mmf-oauth-username" class="integration-account-name"></strong>
-              <span class="integration-account-meta">OAuth connected</span>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="mmf-oauth-logout-btn">
-              <span class="mdi mdi-logout" aria-hidden="true"></span> Disconnect
-            </button>
-          </div>
-
-          <div id="mmf-oauth-connect" class="integration-fields">
-            <p class="integration-inline-hint">
-              File downloads require authorizing your personal MyMiniFactory account. The app slug alone is not enough.
-            </p>
-            <div class="integration-inline-actions">
-              <button type="button" class="btn btn-primary btn-sm" id="mmf-oauth-connect-btn">
-                <span class="mdi mdi-link-variant" aria-hidden="true"></span> Connect MyMiniFactory
-              </button>
-            </div>
-          </div>
-
-          <div id="mmf-oauth-message" class="integration-feedback" aria-live="polite"></div>
-
-          <div class="integration-section-label integration-section-label--muted">
-            <span class="mdi mdi-application-cog" aria-hidden="true"></span>
-            Developer app credentials
-            <span class="integration-section-tag integration-section-tag--muted">Site-wide</span>
-          </div>
-          <div class="form-group">
-            <label for="myminifactory-api-key">App slug (client key)</label>
-            <input
-              type="password"
-              id="myminifactory-api-key"
-              name="myminifactory_api_key"
-              value=""
-              placeholder="{% if download_config.myminifactory_api_key %}Saved — leave blank to keep{% else %}OAuth client key from developer app{% endif %}"
-              autocomplete="new-password"
-            >
-          </div>
-          <div class="form-group">
-            <label for="myminifactory-legacy-api-key">Legacy API key (optional)</label>
-            <input
-              type="password"
-              id="myminifactory-legacy-api-key"
-              name="myminifactory_client_secret"
-              value=""
-              placeholder="{% if download_config.myminifactory_client_secret %}Saved — leave blank to keep{% else %}UUID from developer app — not required for OAuth{% endif %}"
-              autocomplete="new-password"
-            >
-          </div>
-          <div class="helptext">
-            App slug is the OAuth <strong>client key</strong> (e.g. <code>pick_a_print</code>). MMF no longer shows a
-            client secret — click <strong>Connect MyMiniFactory</strong> to sign in. The optional UUID API key is only
-            for legacy public search endpoints.
-          </div>
-          <div class="helptext">
-            Register this redirect URI in your MMF developer app:
-            <code id="mmf-oauth-callback-url">{{ mmf_oauth_callback_url }}</code>
-          </div>
-        </div>
         {% endif %}
 
         <div class="integration-actions-bar">
           {% if integration.has_config %}
           <button type="button" class="btn btn-secondary btn-sm" data-integration-save>
             <span class="mdi mdi-content-save-outline" aria-hidden="true"></span>
-            {% if integration.id == 'myminifactory' %}Save credentials{% else %}Save{% endif %}
+            Save
           </button>
           {% endif %}
           {% if integration.has_test %}
@@ -327,11 +250,10 @@
 
   <p class="integrations-env-note">
     <span class="mdi mdi-console" aria-hidden="true"></span>
-    Environment variables <code>BAMBU_LAB_TOKEN</code>, <code>THINGIVERSE_API_TOKEN</code>, and <code>MYMINIFACTORY_API_KEY</code> still work as fallbacks.
+    Environment variables <code>BAMBU_LAB_TOKEN</code> and <code>THINGIVERSE_API_TOKEN</code> still work as fallbacks.
   </p>
 </div>
 {{ bambu_cloud_status|json_script:"bambu-cloud-status-data" }}
-{{ mmf_oauth_status|json_script:"mmf-oauth-status-data" }}
 {% if integrations_flash %}{{ integrations_flash|json_script:"integrations-flash-data" }}{% endif %}
 
 {% elif active_tab == 'scan' %}

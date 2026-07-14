@@ -234,47 +234,6 @@ class ThingiverseAdapter(GenericOpenGraphAdapter):
         return match.group(1) if match else ""
 
 
-class MyMiniFactoryAdapter(GenericOpenGraphAdapter):
-    site_name = "myminifactory"
-
-    def can_handle(self, url: str) -> bool:
-        host = urlparse(url).netloc.lower()
-        return "myminifactory.com" in host
-
-    def fetch_metadata(self, url: str) -> FetchedMetadata:
-        url = canonicalize_model_url(url)
-        external_id = self._extract_id(url)
-        fetched = super().fetch_metadata(url)
-        title, designer = self._parse_mmf_title(fetched.title)
-        if not designer:
-            author = fetched.metadata.get("author")
-            if isinstance(author, dict):
-                designer = str(author.get("name") or "")
-            elif isinstance(author, str):
-                designer = author
-        return FetchedMetadata(
-            title=title or fetched.title,
-            designer=designer or fetched.designer,
-            license=fetched.license,
-            thumbnail_url=fetched.thumbnail_url,
-            source_site="myminifactory.com",
-            external_id=external_id,
-            metadata={**fetched.metadata, "platform": "myminifactory"},
-        )
-
-    def _parse_mmf_title(self, raw: str) -> tuple[str, str]:
-        text = re.sub(r"\s+", " ", (raw or "").strip())
-        text = re.sub(r"^3D Printable\s+", "", text, flags=re.IGNORECASE)
-        match = re.search(r"\s+by\s+(.+)$", text, flags=re.IGNORECASE)
-        if match:
-            return text[: match.start()].strip(), match.group(1).strip()
-        return text, ""
-
-    def _extract_id(self, url: str) -> str:
-        match = re.search(r"/object/[\w-]+-(\d+)", url) or re.search(r"/object/(\d+)", url)
-        return match.group(1) if match else ""
-
-
 class Cults3dAdapter(GenericOpenGraphAdapter):
     site_name = "cults3d"
 

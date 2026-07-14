@@ -23,7 +23,3 @@ def bambu_lab_token(user=None) -> str:
         if token:
             return token
     return _db_value("bambu_lab_token") or getattr(settings, "BAMBU_LAB_TOKEN", "") or ""
-
-
-def myminifactory_api_key() -> str:
-    return _db_value("myminifactory_api_key") or getattr(settings, "MYMINIFACTORY_API_KEY", "") or ""

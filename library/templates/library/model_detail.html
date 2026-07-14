@@ -78,9 +78,9 @@
   {% elif model.metadata.download_error and not model_files %}
   <div class="form-card model-detail-notice">
     <p class="text-muted" style="margin:0">Could not download files automatically: {{ model.metadata.download_error }}</p>
-    {% if model.source_site == 'myminifactory.com' or model.metadata.platform == 'myminifactory' %}
+    {% if model.source_type == 'link' and model.source_url %}
     <p class="text-muted" style="margin:0.5rem 0 0">
-      <a href="{% url 'settings' %}?tab=integrations">Open Settings → Integrations</a> to connect MyMiniFactory, then retry.
+      <a href="{{ model.source_url }}" target="_blank" rel="noopener noreferrer">Open original ↗</a>
     </p>
     {% endif %}
     <form method="post" style="margin:0.75rem 0 0">

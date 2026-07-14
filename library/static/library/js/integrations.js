@@ -117,19 +117,11 @@
     const payload = {};
     const thingiverseInput = card.querySelector('[name="thingiverse_api_token"]');
     const makerworldInput = card.querySelector('[name="bambu_lab_token"]');
-    const mmfInput = card.querySelector('[name="myminifactory_api_key"]');
-    const mmfSecretInput = card.querySelector('[name="myminifactory_client_secret"]');
     if (thingiverseInput?.value.trim()) {
       payload.thingiverse_api_token = thingiverseInput.value.trim();
     }
     if (makerworldInput?.value.trim()) {
       payload.bambu_lab_token = makerworldInput.value.trim();
-    }
-    if (mmfInput?.value.trim()) {
-      payload.myminifactory_api_key = mmfInput.value.trim();
-    }
-    if (mmfSecretInput?.value.trim()) {
-      payload.myminifactory_client_secret = mmfSecretInput.value.trim();
     }
     return payload;
   }
@@ -138,8 +130,6 @@
     const fields = [
       ['[name="bambu_lab_token"]', "bambu_lab_token"],
       ['[name="thingiverse_api_token"]', "thingiverse_api_token"],
-      ['[name="myminifactory_api_key"]', "myminifactory_api_key"],
-      ['[name="myminifactory_client_secret"]', "myminifactory_client_secret"],
     ];
     for (const [selector, key] of fields) {
       const input = card.querySelector(selector);

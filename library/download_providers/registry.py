@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from library.download_providers.base import DownloadProvider
 from library.download_providers.makerworld import MakerWorldDownloadProvider
-from library.download_providers.myminifactory import MyMiniFactoryDownloadProvider
 from library.download_providers.printables import PrintablesDownloadProvider
 from library.download_providers.thangs import ThangsDownloadProvider
 from library.download_providers.thingiverse import ThingiverseDownloadProvider
@@ -13,7 +12,6 @@ _PROVIDERS: list[DownloadProvider] = [
     ThangsDownloadProvider(),
     MakerWorldDownloadProvider(),
     ThingiverseDownloadProvider(),
-    MyMiniFactoryDownloadProvider(),
 ]
 
 
