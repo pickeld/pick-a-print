@@ -21,9 +21,7 @@
     "https://thangs.com/*",
     "https://www.thangs.com/*",
     "https://www.thingiverse.com/*",
-    "https://thingiverse.com/*",
-    "https://cults3d.com/*",
-    "https://www.cults3d.com/*"
+    "https://thingiverse.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -42,9 +40,7 @@
         "https://thangs.com/*",
         "https://www.thangs.com/*",
         "https://www.thingiverse.com/*",
-        "https://thingiverse.com/*",
-        "https://cults3d.com/*",
-        "https://www.cults3d.com/*"
+        "https://thingiverse.com/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"]

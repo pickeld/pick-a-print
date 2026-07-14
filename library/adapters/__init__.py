@@ -2,7 +2,6 @@ from urllib.parse import urlparse
 
 from library.adapters.base import FetchedMetadata, SourceAdapter, canonicalize_model_url, normalize_url
 from library.adapters.sites import (
-    Cults3dAdapter,
     GenericOpenGraphAdapter,
     MakerWorldAdapter,
     PrintablesAdapter,
@@ -15,7 +14,6 @@ _ADAPTERS: list[SourceAdapter] = [
     MakerWorldAdapter(),
     ThangsAdapter(),
     ThingiverseAdapter(),
-    Cults3dAdapter(),
     GenericOpenGraphAdapter(),
 ]
 

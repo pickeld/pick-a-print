@@ -192,23 +192,6 @@ def _download_integrations_status(user=None) -> list[dict]:
             "has_test": True,
             "has_config": True,
         },
-        {
-            "id": "cults3d",
-            "site": "Cults3D",
-            "initial": "C",
-            "icon": "library/icons/integrations/cults3d.svg",
-            "color": "#e74c3c",
-            "status": "unsupported",
-            "note": "Metadata only — Cults does not expose file downloads via API",
-            "summary": "Save Cults3D links for metadata only",
-            "help": (
-                "Cults3D does not expose file downloads via API. You can still save model links and "
-                "metadata; upload STL or 3MF files manually on the model page."
-            ),
-            "expand": False,
-            "has_test": True,
-            "has_config": False,
-        },
     ]
 
 

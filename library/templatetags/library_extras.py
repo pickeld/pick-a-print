@@ -19,8 +19,6 @@ SITE_LABELS = {
     "thangs.com": "Thangs",
     "thingiverse": "Thingiverse",
     "thingiverse.com": "Thingiverse",
-    "cults3d": "Cults3D",
-    "cults3d.com": "Cults3D",
     "upload": "Upload",
 }
 

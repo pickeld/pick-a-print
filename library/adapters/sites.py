@@ -232,29 +232,3 @@ class ThingiverseAdapter(GenericOpenGraphAdapter):
     def _extract_id(self, url: str) -> str:
         match = re.search(r"/thing:(\d+)", url)
         return match.group(1) if match else ""
-
-
-class Cults3dAdapter(GenericOpenGraphAdapter):
-    site_name = "cults3d"
-
-    def can_handle(self, url: str) -> bool:
-        host = urlparse(url).netloc.lower()
-        return "cults3d.com" in host
-
-    def fetch_metadata(self, url: str) -> FetchedMetadata:
-        url = canonicalize_model_url(url)
-        external_id = self._extract_id(url)
-        fetched = super().fetch_metadata(url)
-        return FetchedMetadata(
-            title=fetched.title,
-            designer=fetched.designer,
-            license=fetched.license,
-            thumbnail_url=fetched.thumbnail_url,
-            source_site="cults3d.com",
-            external_id=external_id,
-            metadata={**fetched.metadata, "platform": "cults3d"},
-        )
-
-    def _extract_id(self, url: str) -> str:
-        match = re.search(r"/3d-model/[\w-]+/([\w-]+)", url)
-        return match.group(1) if match else ""

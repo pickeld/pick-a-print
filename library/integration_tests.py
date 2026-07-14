@@ -104,13 +104,6 @@ def test_thingiverse(*, api_token: str = "") -> IntegrationTestResult:
         return IntegrationTestResult(False, f"Could not verify Thingiverse token: {exc}")
 
 
-def test_cults3d() -> IntegrationTestResult:
-    return IntegrationTestResult(
-        False,
-        "Cults3D does not expose file downloads via API. Save links for metadata only.",
-    )
-
-
 def run_integration_test(integration_id: str, user, payload: dict | None = None) -> IntegrationTestResult:
     payload = payload or {}
     tests = {
@@ -123,7 +116,6 @@ def run_integration_test(integration_id: str, user, payload: dict | None = None)
         "thingiverse": lambda: test_thingiverse(
             api_token=str(payload.get("thingiverse_api_token", "")),
         ),
-        "cults3d": test_cults3d,
     }
     test_fn = tests.get(integration_id)
     if not test_fn:
