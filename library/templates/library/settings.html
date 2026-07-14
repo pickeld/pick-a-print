@@ -7,8 +7,8 @@
 {% if active_tab == 'about' %}
 <script src="{% static 'library/js/about.js' %}" defer></script>
 {% elif active_tab == 'downloads' %}
+<script src="{% static 'library/js/integrations.js' %}" defer></script>
 <script src="{% static 'library/js/bambu_cloud.js' %}" defer></script>
-<script src="{% static 'library/js/download_integrations.js' %}" defer></script>
 {% elif active_tab == 'scan' %}
 <script src="{% static 'library/js/scan_worker.js' %}" defer></script>
 {% elif active_tab == 'api' %}
@@ -19,12 +19,12 @@
 {% block content %}
 <div class="page-header">
   <h2>Settings</h2>
-  <p>{% if active_tab == 'about' %}Docker images and pipeline tool releases{% else %}API access for the browser extension{% endif %}</p>
+  <p>{% if active_tab == 'about' %}Docker images and pipeline tool releases{% elif active_tab == 'downloads' %}Connect model sites for automatic file downloads{% else %}API access for the browser extension{% endif %}</p>
 </div>
 
 <div class="tabs">
   <a href="?tab=api" class="tab {% if active_tab == 'api' %}active{% endif %}">API &amp; Extension</a>
-  <a href="?tab=downloads" class="tab {% if active_tab == 'downloads' %}active{% endif %}">Auto-download</a>
+  <a href="?tab=integrations" class="tab {% if active_tab == 'downloads' %}active{% endif %}">Integrations</a>
   <a href="?tab=scan" class="tab {% if active_tab == 'scan' %}active{% endif %}">Scan worker</a>
   <a href="?tab=app" class="tab {% if active_tab == 'app' %}active{% endif %}">App</a>
   <a href="?tab=about" class="tab {% if active_tab == 'about' %}active{% endif %}">
@@ -35,159 +35,243 @@
 
 {% if active_tab == 'downloads' %}
 <div
-  id="download-integrations-panel"
-  class="form-card"
-  style="max-width:720px"
+  id="integrations-panel"
+  class="integrations-panel"
+  data-test-url="{% url 'integration_test' %}"
   data-save-url="{% url 'download_integrations_save' %}"
 >
-  <p class="text-muted" style="margin-top:0">When you save a model link, Pick-a-Print tries to download STL/3MF files automatically. Sites that need credentials can be configured below.</p>
-
   {% csrf_token %}
 
-  <div class="table-wrap" style="margin-bottom:1.25rem">
-    <table class="dep-table">
-      <thead>
-        <tr>
-          <th>Site</th>
-          <th>Status</th>
-          <th>Setup</th>
-        </tr>
-      </thead>
-      <tbody id="download-integrations-status">
-        {% for row in download_integrations %}
-        <tr>
-          <td>{{ row.site }}</td>
-          <td>
-            {% if row.status == 'ready' %}<span class="badge badge-status saved">Ready</span>
-            {% elif row.status == 'configured' %}<span class="badge badge-status downloaded">Configured</span>
-            {% elif row.status == 'needs_token' %}<span class="badge badge-status saved">Needs login</span>
-            {% else %}<span class="badge badge-status">Limited</span>{% endif %}
-          </td>
-          <td class="text-muted">{{ row.note }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <header class="integrations-header">
+    <div class="integrations-header-copy">
+      <h3 class="integrations-title">Model site connections</h3>
+      <p class="integrations-subtitle">Automatic STL and 3MF downloads when you save a link to your library.</p>
+    </div>
+    <div class="integrations-stats" aria-label="Integration status">
+      <div class="integrations-stat">
+        <span class="integrations-stat-value" id="integrations-overview-active">{{ integrations_summary.active }}</span>
+        <span class="integrations-stat-label">Ready</span>
+      </div>
+      <div class="integrations-stat integrations-stat--warn">
+        <span class="integrations-stat-value" id="integrations-overview-setup">{{ integrations_summary.setup }}</span>
+        <span class="integrations-stat-label">Need setup</span>
+      </div>
+      <div class="integrations-stat integrations-stat--muted">
+        <span class="integrations-stat-value">{{ integrations_summary.total }}</span>
+        <span class="integrations-stat-label">Total</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="integrations-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ integrations_summary.percent }}" aria-label="Integrations ready">
+    <div class="integrations-progress-fill" id="integrations-overview-progress" style="width: {{ integrations_summary.percent }}%"></div>
   </div>
 
-  <div
-    id="bambu-cloud-panel"
-    class="bambu-cloud-panel"
-    data-login-url="{% url 'bambu_cloud_login' %}"
-    data-verify-url="{% url 'bambu_cloud_verify' %}"
-    data-token-url="{% url 'bambu_cloud_token' %}"
-    data-logout-url="{% url 'bambu_cloud_logout' %}"
-    data-initial-status="{{ bambu_cloud_status_json|escapejs }}"
-  >
-    <h3 style="font-size:1rem;margin:0 0 0.75rem">MakerWorld — Bambu Cloud</h3>
-    <p class="helptext" style="margin-top:0">MakerWorld has no public API key. Connect your Bambu Cloud account to auto-download 3MF files and import descriptions.</p>
-
-    <div id="bambu-cloud-connected" class="hidden">
-      <p class="text-muted" style="margin:0 0 0.75rem">
-        Connected as <strong id="bambu-cloud-name"></strong>
-        <span id="bambu-cloud-region-badge" class="badge badge-site"></span>
-      </p>
-      <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-logout-btn">Disconnect</button>
-    </div>
-
-    <div id="bambu-cloud-login">
-      <div class="form-group">
-        <label for="bambu-cloud-region">Region</label>
-        <select id="bambu-cloud-region" name="region">
-          <option value="global">Global (makerworld.com)</option>
-          <option value="china">China (makerworld.com.cn)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="bambu-cloud-email">Bambu account email</label>
-        <input type="email" id="bambu-cloud-email" autocomplete="username">
-      </div>
-      <div class="form-group">
-        <label for="bambu-cloud-password">Password</label>
-        <input type="password" id="bambu-cloud-password" autocomplete="current-password">
-      </div>
-      <div class="about-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-login-btn">Sign in</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-token-toggle">Use session token instead</button>
-      </div>
-    </div>
-
-    <div id="bambu-cloud-verify" class="hidden">
-      <p class="text-muted" id="bambu-cloud-verify-hint">Enter your verification code.</p>
-      <div class="form-group">
-        <label for="bambu-cloud-code">Verification code</label>
-        <input type="text" id="bambu-cloud-code" inputmode="numeric" autocomplete="one-time-code">
-      </div>
-      <div class="about-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-verify-btn">Verify</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-verify-cancel">Back</button>
-      </div>
-    </div>
-
-    <div id="bambu-cloud-token" class="hidden">
-      <div class="form-group">
-        <label for="bambu-cloud-access-token">Session token</label>
-        <input type="password" id="bambu-cloud-access-token" autocomplete="off" placeholder="token cookie from makerworld.com">
-        <div class="helptext">Log in to MakerWorld → DevTools → Application → Cookies → copy the <code>token</code> value (starts with <code>AAB_</code>).</div>
-      </div>
-      <div class="about-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-token-save">Save token</button>
-        <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-token-cancel">Back to sign in</button>
-      </div>
-    </div>
-
-    <div id="bambu-cloud-message" class="text-muted" aria-live="polite" style="margin-top:0.75rem"></div>
-  </div>
-
-  <h3 style="font-size:1rem;margin:1.5rem 0 0.75rem">Other provider credentials</h3>
-
-  <div class="form-group">
-    <label for="bambu-lab-token">MakerWorld fallback token (site-wide)</label>
-    <input
-      type="password"
-      id="bambu-lab-token"
-      name="bambu_lab_token"
-      value=""
-      placeholder="{% if download_config.bambu_lab_token %}•••••••• (saved){% else %}Optional — for all users if Bambu Cloud login is not used{% endif %}"
-      autocomplete="new-password"
+  <div class="integrations-list">
+    {% for integration in download_integrations %}
+    <details
+      class="integration-card integration-card--{{ integration.id }}"
+      data-integration-id="{{ integration.id }}"
+      data-status="{{ integration.status }}"
     >
-    <div class="helptext">Optional site-wide fallback. Per-user Bambu Cloud login above is preferred.</div>
+      <summary class="integration-summary">
+        <span class="integration-logo" style="--brand-color: {{ integration.color }}">
+          <img src="{% static integration.icon %}" alt="" width="28" height="28" loading="lazy">
+        </span>
+        <span class="integration-summary-main">
+          <span class="integration-name">{{ integration.site }}</span>
+          <span class="integration-summary-text">{{ integration.note }}</span>
+        </span>
+        <span class="integration-summary-meta">
+          <span class="integration-status-badge">
+            <span class="integration-status-pill integration-status-pill--{{ integration.status }}">
+              {% if integration.status == 'ready' %}
+                <span class="mdi mdi-check-circle" aria-hidden="true"></span> Active
+              {% elif integration.status == 'configured' %}
+                <span class="mdi mdi-link-variant" aria-hidden="true"></span> Connected
+              {% elif integration.status == 'needs_token' %}
+                <span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span> Setup
+              {% else %}
+                <span class="mdi mdi-information-outline" aria-hidden="true"></span> Metadata
+              {% endif %}
+            </span>
+          </span>
+          <span class="integration-chevron mdi mdi-chevron-down" aria-hidden="true"></span>
+        </span>
+      </summary>
+
+      <div class="integration-body">
+        <div class="integration-tip">
+          <span class="integration-tip-icon mdi mdi-lightbulb-on-outline" aria-hidden="true"></span>
+          <p class="integration-help-text">{{ integration.help }}</p>
+        </div>
+
+        {% if integration.id == 'makerworld' %}
+        <div
+          id="bambu-cloud-panel"
+          class="bambu-cloud-panel integration-panel-section"
+          data-login-url="{% url 'bambu_cloud_login' %}"
+          data-verify-url="{% url 'bambu_cloud_verify' %}"
+          data-token-url="{% url 'bambu_cloud_token' %}"
+          data-logout-url="{% url 'bambu_cloud_logout' %}"
+        >
+          <div class="integration-section-label">
+            <span class="mdi mdi-account-key" aria-hidden="true"></span>
+            Bambu Cloud sign-in
+            <span class="integration-section-tag">Recommended</span>
+          </div>
+
+          <div id="bambu-cloud-connected" class="integration-account-card hidden">
+            <span class="integration-logo integration-logo--sm" style="--brand-color: {{ integration.color }}">
+              <img src="{% static integration.icon %}" alt="" width="22" height="22">
+            </span>
+            <div class="integration-account-info">
+              <strong id="bambu-cloud-name" class="integration-account-name"></strong>
+              <span id="bambu-cloud-region-badge" class="integration-account-meta badge badge-site"></span>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="bambu-cloud-logout-btn">
+              <span class="mdi mdi-logout" aria-hidden="true"></span> Disconnect
+            </button>
+          </div>
+
+          <div id="bambu-cloud-login" class="integration-fields">
+            <div class="integration-field-row">
+              <div class="form-group">
+                <label for="bambu-cloud-region">Region</label>
+                <select id="bambu-cloud-region" name="region">
+                  <option value="global">Global (makerworld.com)</option>
+                  <option value="china">China (makerworld.com.cn)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="bambu-cloud-email">Bambu account email</label>
+                <input type="email" id="bambu-cloud-email" autocomplete="username" placeholder="you@example.com">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="bambu-cloud-password">Password</label>
+              <input type="password" id="bambu-cloud-password" autocomplete="current-password">
+            </div>
+            <div class="integration-inline-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-login-btn">
+                <span class="mdi mdi-login" aria-hidden="true"></span> Sign in
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" id="bambu-cloud-token-toggle">
+                <span class="mdi mdi-key-variant" aria-hidden="true"></span> Use session token
+              </button>
+            </div>
+          </div>
+
+          <div id="bambu-cloud-verify" class="integration-fields hidden">
+            <p class="integration-inline-hint" id="bambu-cloud-verify-hint">Enter your verification code.</p>
+            <div class="form-group">
+              <label for="bambu-cloud-code">Verification code</label>
+              <input type="text" id="bambu-cloud-code" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+            </div>
+            <div class="integration-inline-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-verify-btn">Verify</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="bambu-cloud-verify-cancel">Back</button>
+            </div>
+          </div>
+
+          <div id="bambu-cloud-token" class="integration-fields hidden">
+            <div class="form-group">
+              <label for="bambu-cloud-access-token">Session token</label>
+              <input type="password" id="bambu-cloud-access-token" autocomplete="off" placeholder="AAB_… from makerworld.com cookie">
+              <div class="helptext">MakerWorld → DevTools → Cookies → copy the <code>token</code> value.</div>
+            </div>
+            <div class="integration-inline-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-token-save">Save token</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="bambu-cloud-token-cancel">Back to sign in</button>
+            </div>
+          </div>
+
+          <div id="bambu-cloud-message" class="integration-feedback" aria-live="polite"></div>
+
+          <div class="integration-section-label integration-section-label--muted">
+            <span class="mdi mdi-server-network" aria-hidden="true"></span>
+            Site-wide fallback
+            <span class="integration-section-tag integration-section-tag--muted">Optional</span>
+          </div>
+          <div class="form-group">
+            <label for="bambu-lab-token">MakerWorld session token</label>
+            <input
+              type="password"
+              id="bambu-lab-token"
+              name="bambu_lab_token"
+              value=""
+              placeholder="{% if download_config.bambu_lab_token %}Saved — leave blank to keep{% else %}Optional token for all users{% endif %}"
+              autocomplete="new-password"
+            >
+          </div>
+        </div>
+
+        {% elif integration.id == 'thingiverse' %}
+        <div class="integration-panel-section">
+          <div class="integration-section-label">
+            <span class="mdi mdi-key" aria-hidden="true"></span>
+            API credentials
+          </div>
+          <div class="form-group">
+            <label for="thingiverse-api-token">Thingiverse API token</label>
+            <input
+              type="password"
+              id="thingiverse-api-token"
+              name="thingiverse_api_token"
+              value=""
+              placeholder="{% if download_config.thingiverse_api_token %}Saved — leave blank to keep{% else %}From thingiverse.com/apps{% endif %}"
+              autocomplete="new-password"
+            >
+          </div>
+        </div>
+
+        {% elif integration.id == 'myminifactory' %}
+        <div class="integration-panel-section">
+          <div class="integration-section-label">
+            <span class="mdi mdi-key" aria-hidden="true"></span>
+            API credentials
+          </div>
+          <div class="form-group">
+            <label for="myminifactory-api-key">MyMiniFactory API key</label>
+            <input
+              type="password"
+              id="myminifactory-api-key"
+              name="myminifactory_api_key"
+              value=""
+              placeholder="{% if download_config.myminifactory_api_key %}Saved — leave blank to keep{% else %}From myminifactory.com API settings{% endif %}"
+              autocomplete="new-password"
+            >
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="integration-actions-bar">
+          {% if integration.has_config %}
+          <button type="button" class="btn btn-secondary btn-sm" data-integration-save>
+            <span class="mdi mdi-content-save-outline" aria-hidden="true"></span>
+            {% if integration.id == 'myminifactory' %}Save key{% else %}Save{% endif %}
+          </button>
+          {% endif %}
+          {% if integration.has_test %}
+          <button type="button" class="btn btn-primary btn-sm integration-test-btn" data-integration-test="{{ integration.id }}">
+            <span class="mdi mdi-lan-connect integration-test-icon" aria-hidden="true"></span>
+            Test connection
+          </button>
+          {% endif %}
+        </div>
+        <div class="integration-save-message integration-feedback" aria-live="polite"></div>
+        <div class="integration-test-result integration-feedback" aria-live="polite"></div>
+      </div>
+    </details>
+    {% endfor %}
   </div>
 
-  <div class="form-group">
-    <label for="thingiverse-api-token">Thingiverse API token</label>
-    <input
-      type="password"
-      id="thingiverse-api-token"
-      name="thingiverse_api_token"
-      value=""
-      placeholder="{% if download_config.thingiverse_api_token %}•••••••• (saved){% else %}From thingiverse.com/apps{% endif %}"
-      autocomplete="new-password"
-    >
-    <div class="helptext">Create an app at thingiverse.com/apps. Leave blank to keep the saved token.</div>
-  </div>
-
-  <div class="form-group">
-    <label for="myminifactory-api-key">MyMiniFactory API key</label>
-    <input
-      type="password"
-      id="myminifactory-api-key"
-      name="myminifactory_api_key"
-      value=""
-      placeholder="{% if download_config.myminifactory_api_key %}•••••••• (saved){% else %}From myminifactory.com API settings{% endif %}"
-      autocomplete="new-password"
-    >
-    <div class="helptext">Request an API key from myminifactory.com. Leave blank to keep the saved key.</div>
-  </div>
-
-  <div id="download-integrations-message" class="text-muted" aria-live="polite"></div>
-
-  <div class="about-actions" style="margin-top:1rem">
-    <button type="button" class="btn btn-primary btn-sm" id="download-integrations-save-btn">Save credentials</button>
-  </div>
-
-  <p class="helptext" style="margin-top:1rem;margin-bottom:0">Environment variables (<code>BAMBU_LAB_TOKEN</code>, <code>THINGIVERSE_API_TOKEN</code>, <code>MYMINIFACTORY_API_KEY</code>) still work as a fallback if no value is saved here.</p>
+  <p class="integrations-env-note">
+    <span class="mdi mdi-console" aria-hidden="true"></span>
+    Environment variables <code>BAMBU_LAB_TOKEN</code>, <code>THINGIVERSE_API_TOKEN</code>, and <code>MYMINIFACTORY_API_KEY</code> still work as fallbacks.
+  </p>
 </div>
+{{ bambu_cloud_status|json_script:"bambu-cloud-status-data" }}
 
 {% elif active_tab == 'scan' %}
 <div

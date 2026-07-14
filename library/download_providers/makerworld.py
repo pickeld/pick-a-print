@@ -24,7 +24,7 @@ class MakerWorldDownloadProvider:
         if not token:
             raise DownloadError(
                 "MakerWorld downloads need a Bambu Cloud login. "
-                "Connect in Settings → Auto-download, paste your MakerWorld session token, "
+                "Connect in Settings → Integrations, paste your MakerWorld session token, "
                 "or set BAMBU_LAB_TOKEN in your environment."
             )
 

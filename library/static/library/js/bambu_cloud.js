@@ -15,7 +15,6 @@
   const nameEl = document.getElementById("bambu-cloud-name");
   const regionBadgeEl = document.getElementById("bambu-cloud-region-badge");
   const verifyHintEl = document.getElementById("bambu-cloud-verify-hint");
-  const statusBody = document.getElementById("download-integrations-status");
 
   const regionSelect = document.getElementById("bambu-cloud-region");
   const emailInput = document.getElementById("bambu-cloud-email");
@@ -23,6 +22,7 @@
   const codeInput = document.getElementById("bambu-cloud-code");
   const accessTokenInput = document.getElementById("bambu-cloud-access-token");
 
+  const makerworldCard = panel.closest('[data-integration-id="makerworld"]');
   let verificationType = "email";
 
   function getCsrfToken() {
@@ -30,8 +30,13 @@
     return input ? input.value : "";
   }
 
-  function setMessage(text) {
-    if (messageEl) messageEl.textContent = text || "";
+  function setMessage(text, tone) {
+    if (!messageEl) return;
+    if (window.IntegrationsUI?.setFeedback) {
+      window.IntegrationsUI.setFeedback(messageEl, text, tone || (text ? "info" : null));
+      return;
+    }
+    messageEl.textContent = text || "";
   }
 
   function setLoading(loading) {
@@ -39,27 +44,15 @@
     panel.querySelectorAll("button").forEach((btn) => {
       btn.disabled = loading;
     });
-  }
-
-  function statusBadge(status) {
-    if (status === "ready") return '<span class="badge badge-status saved">Ready</span>';
-    if (status === "configured") return '<span class="badge badge-status downloaded">Configured</span>';
-    if (status === "needs_token") return '<span class="badge badge-status saved">Needs login</span>';
-    return '<span class="badge badge-status">Limited</span>';
+    if (window.IntegrationsUI && makerworldCard) {
+      window.IntegrationsUI.setCardLoading(makerworldCard, loading);
+    }
   }
 
   function renderIntegrations(integrations) {
-    if (!statusBody || !Array.isArray(integrations)) return;
-    statusBody.innerHTML = integrations
-      .map(
-        (row) => `
-        <tr>
-          <td>${row.site}</td>
-          <td>${statusBadge(row.status)}</td>
-          <td class="text-muted">${row.note || ""}</td>
-        </tr>`
-      )
-      .join("");
+    if (window.IntegrationsUI) {
+      window.IntegrationsUI.renderIntegrations(integrations);
+    }
   }
 
   function showSection(section) {
@@ -83,7 +76,7 @@
       regionBadgeEl.textContent = status.region === "china" ? "China" : "Global";
     }
     if (status.expired) {
-      setMessage("Your Bambu Cloud session may have expired. Sign in again if downloads fail.");
+      setMessage("Your Bambu Cloud session may have expired. Sign in again if downloads fail.", "fail");
     }
   }
 
@@ -128,10 +121,10 @@
       }
       renderStatus(data.cloud_status);
       renderIntegrations(data.integrations);
-      setMessage(data.message || "Connected.");
+      setMessage(data.message || "Connected.", "ok");
       if (passwordInput) passwordInput.value = "";
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message, "fail");
     } finally {
       setLoading(false);
     }
@@ -146,11 +139,11 @@
       });
       renderStatus(data.cloud_status);
       renderIntegrations(data.integrations);
-      setMessage(data.message || "Connected.");
+      setMessage(data.message || "Connected.", "ok");
       if (codeInput) codeInput.value = "";
       if (passwordInput) passwordInput.value = "";
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message, "fail");
     } finally {
       setLoading(false);
     }
@@ -166,10 +159,10 @@
       });
       renderStatus(data.cloud_status);
       renderIntegrations(data.integrations);
-      setMessage(data.message || "Token saved.");
+      setMessage(data.message || "Token saved.", "ok");
       if (accessTokenInput) accessTokenInput.value = "";
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message, "fail");
     } finally {
       setLoading(false);
     }
@@ -182,34 +175,50 @@
       const data = await postJson(logoutUrl, {});
       renderStatus(data.cloud_status);
       renderIntegrations(data.integrations);
-      setMessage(data.message || "Disconnected.");
+      setMessage(data.message || "Disconnected.", "info");
     } catch (error) {
-      setMessage(error.message);
+      setMessage(error.message, "fail");
     } finally {
       setLoading(false);
     }
   }
 
-  document.getElementById("bambu-cloud-login-btn")?.addEventListener("click", handleLogin);
-  document.getElementById("bambu-cloud-verify-btn")?.addEventListener("click", handleVerify);
-  document.getElementById("bambu-cloud-token-save")?.addEventListener("click", handleTokenSave);
-  document.getElementById("bambu-cloud-logout-btn")?.addEventListener("click", handleLogout);
+  document.getElementById("bambu-cloud-login-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handleLogin();
+  });
+  document.getElementById("bambu-cloud-verify-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handleVerify();
+  });
+  document.getElementById("bambu-cloud-token-save")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handleTokenSave();
+  });
+  document.getElementById("bambu-cloud-logout-btn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handleLogout();
+  });
 
-  document.getElementById("bambu-cloud-token-toggle")?.addEventListener("click", () => {
+  document.getElementById("bambu-cloud-token-toggle")?.addEventListener("click", (event) => {
+    event.stopPropagation();
     setMessage("");
     showSection("token");
   });
-  document.getElementById("bambu-cloud-token-cancel")?.addEventListener("click", () => {
+  document.getElementById("bambu-cloud-token-cancel")?.addEventListener("click", (event) => {
+    event.stopPropagation();
     setMessage("");
     showSection("login");
   });
-  document.getElementById("bambu-cloud-verify-cancel")?.addEventListener("click", () => {
+  document.getElementById("bambu-cloud-verify-cancel")?.addEventListener("click", (event) => {
+    event.stopPropagation();
     setMessage("");
     showSection("login");
   });
 
   try {
-    const initial = JSON.parse(panel.dataset.initialStatus || "{}");
+    const statusEl = document.getElementById("bambu-cloud-status-data");
+    const initial = statusEl ? JSON.parse(statusEl.textContent) : {};
     renderStatus(initial);
   } catch (_) {
     showSection("login");

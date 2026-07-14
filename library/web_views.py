@@ -123,25 +123,123 @@ def _download_integrations_status(user=None) -> list[dict]:
         makerworld_note = "Session token or site-wide credential configured"
 
     return [
-        {"site": "Printables", "status": "ready", "note": "Works out of the box"},
-        {"site": "Thangs", "status": "ready", "note": "May be blocked by Cloudflare from some servers"},
         {
+            "id": "printables",
+            "site": "Printables",
+            "initial": "P",
+            "icon": "library/icons/integrations/printables.svg",
+            "color": "#fa6e28",
+            "status": "ready",
+            "note": "Works out of the box",
+            "summary": "Automatic STL downloads from Printables.com",
+            "help": (
+                "No setup needed. When you save a Printables link, Pick-a-Print fetches STL files "
+                "via the public GraphQL API."
+            ),
+            "expand": False,
+            "has_test": True,
+            "has_config": False,
+        },
+        {
+            "id": "thangs",
+            "site": "Thangs",
+            "initial": "T",
+            "icon": "library/icons/integrations/thangs.svg",
+            "color": "#7c6cf0",
+            "status": "ready",
+            "note": "May be blocked by Cloudflare from some servers",
+            "summary": "Automatic downloads from Thangs.com",
+            "help": (
+                "No credentials required. Downloads use the public Thangs API. Some servers may be "
+                "blocked by Cloudflare — run Test connection to check from this host."
+            ),
+            "expand": False,
+            "has_test": True,
+            "has_config": False,
+        },
+        {
+            "id": "makerworld",
             "site": "MakerWorld",
+            "initial": "M",
+            "icon": "library/icons/integrations/makerworld.svg",
+            "color": "#00ae42",
             "status": "configured" if makerworld_configured else "needs_token",
             "note": makerworld_note,
+            "summary": "3MF downloads and descriptions from MakerWorld",
+            "help": (
+                "MakerWorld has no public API key. Sign in with your Bambu Cloud account (recommended) "
+                "or paste a session token from MakerWorld cookies. A site-wide fallback token is optional."
+            ),
+            "expand": not makerworld_configured,
+            "has_test": True,
+            "has_config": True,
         },
         {
+            "id": "thingiverse",
             "site": "Thingiverse",
+            "initial": "Ti",
+            "icon": "library/icons/integrations/thingiverse.svg",
+            "color": "#2dadfc",
             "status": "configured" if thingiverse_api_token() else "needs_token",
             "note": "API token from thingiverse.com/apps",
+            "summary": "Automatic downloads from Thingiverse",
+            "help": (
+                "Create a developer app at thingiverse.com/apps, copy the API token, and paste it below. "
+                "Leave the field blank when saving to keep the existing token."
+            ),
+            "expand": False,
+            "has_test": True,
+            "has_config": True,
         },
         {
+            "id": "myminifactory",
             "site": "MyMiniFactory",
+            "initial": "MF",
+            "icon": "library/icons/integrations/myminifactory.svg",
+            "color": "#e91e8c",
             "status": "configured" if myminifactory_api_key() else "needs_token",
             "note": "API key from myminifactory.com",
+            "summary": "Automatic downloads from MyMiniFactory",
+            "help": (
+                "Request an API key from MyMiniFactory and paste it below. "
+                "Leave the field blank when saving to keep the existing key."
+            ),
+            "expand": False,
+            "has_test": True,
+            "has_config": True,
         },
-        {"site": "Cults3D", "status": "unsupported", "note": "Metadata only — Cults does not expose file downloads via API"},
+        {
+            "id": "cults3d",
+            "site": "Cults3D",
+            "initial": "C",
+            "icon": "library/icons/integrations/cults3d.svg",
+            "color": "#e74c3c",
+            "status": "unsupported",
+            "note": "Metadata only — Cults does not expose file downloads via API",
+            "summary": "Save Cults3D links for metadata only",
+            "help": (
+                "Cults3D does not expose file downloads via API. You can still save model links and "
+                "metadata; upload STL or 3MF files manually on the model page."
+            ),
+            "expand": False,
+            "has_test": True,
+            "has_config": False,
+        },
     ]
+
+
+def _integrations_summary(integrations: list[dict]) -> dict:
+    active = sum(1 for row in integrations if row["status"] in ("ready", "configured"))
+    setup = sum(1 for row in integrations if row["status"] == "needs_token")
+    total = len(integrations)
+    percent = round((active / total) * 100) if total else 0
+    return {
+        "active": active,
+        "setup": setup,
+        "total": total,
+        "percent": percent,
+        "label": f"{active} of {total} ready",
+    }
 
 
 def _user_collections(user):
@@ -364,6 +462,8 @@ def model_save_view(request):
 @login_required
 def settings_view(request):
     active_tab = request.GET.get("tab", "api")
+    if active_tab == "integrations":
+        active_tab = "downloads"
     if active_tab not in ("api", "about", "downloads", "app", "scan"):
         active_tab = "api"
 
@@ -405,6 +505,9 @@ def settings_view(request):
 
     if active_tab == "downloads":
         config = SiteConfig.get()
+        integrations = _download_integrations_status(request.user)
+        context["download_integrations"] = integrations
+        context["integrations_summary"] = _integrations_summary(integrations)
         context["download_config"] = {
             "thingiverse_api_token": bool(config.thingiverse_api_token),
             "bambu_lab_token": bool(config.bambu_lab_token),
@@ -437,6 +540,24 @@ def extension_download_view(request):
     response = HttpResponse(payload, content_type="application/zip")
     response["Content-Disposition"] = 'attachment; filename="pick-a-print-extension.zip"'
     return response
+
+
+@login_required
+@require_http_methods(["POST"])
+def integration_test_view(request):
+    from library.integration_tests import run_integration_test
+
+    payload = _parse_scan_worker_payload(request)
+    integration_id = str(payload.get("integration", "")).strip().lower()
+    result = run_integration_test(integration_id, request.user, payload)
+    return JsonResponse(
+        {
+            "ok": result.ok,
+            "message": result.message,
+            "integrations": _download_integrations_status(request.user),
+        },
+        status=200 if result.ok else 400,
+    )
 
 
 @login_required

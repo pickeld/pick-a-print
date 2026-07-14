@@ -25,7 +25,7 @@ class MyMiniFactoryDownloadProvider:
         if not api_key:
             raise DownloadError(
                 "MyMiniFactory downloads need an API key. "
-                "Add it in Settings → Auto-download, or set MYMINIFACTORY_API_KEY in your environment."
+                "Add it in Settings → Integrations, or set MYMINIFACTORY_API_KEY in your environment."
             )
 
         object_id = model.external_id or _extract_object_id(model.source_url or "")

@@ -24,7 +24,7 @@ class ThingiverseDownloadProvider:
         if not token:
             raise DownloadError(
                 "Thingiverse downloads need an API token. "
-                "Add it in Settings → Auto-download, or set THINGIVERSE_API_TOKEN in your environment."
+                "Add it in Settings → Integrations, or set THINGIVERSE_API_TOKEN in your environment."
             )
 
         thing_id = model.external_id or _extract_thing_id(model.source_url or "")

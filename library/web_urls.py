@@ -17,6 +17,7 @@ urlpatterns = [
     path("settings/scan-worker-check/", web_views.scan_worker_check_view, name="scan_worker_check"),
     path("settings/scan-worker-save/", web_views.scan_worker_save_view, name="scan_worker_save"),
     path("settings/download-integrations-save/", web_views.download_integrations_save_view, name="download_integrations_save"),
+    path("settings/integration-test/", web_views.integration_test_view, name="integration_test"),
     path("settings/bambu-cloud/login/", web_views.bambu_cloud_login_view, name="bambu_cloud_login"),
     path("settings/bambu-cloud/verify/", web_views.bambu_cloud_verify_view, name="bambu_cloud_verify"),
     path("settings/bambu-cloud/token/", web_views.bambu_cloud_token_view, name="bambu_cloud_token"),
