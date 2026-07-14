@@ -56,6 +56,18 @@ from library.scan_worker import (
     validate_jetson_host,
 )
 from library.provider_credentials import bambu_lab_token, myminifactory_api_key, thingiverse_api_token
+from library.bambu_cloud import (
+    BambuCloudAuthError,
+    clear_user_cloud_auth,
+    cloud_auth_status,
+    login_request,
+    save_user_cloud_auth,
+    validate_access_token,
+    verify_email_code,
+    verify_totp,
+)
+
+BAMBU_CLOUD_SESSION_KEY = "bambu_cloud_pending"
 
 
 def _parse_scan_worker_payload(request) -> dict:
@@ -102,14 +114,21 @@ def _apply_download_integration_fields(config: SiteConfig, payload: dict) -> Non
             setattr(config, field_name, token_value)
 
 
-def _download_integrations_status() -> list[dict]:
+def _download_integrations_status(user=None) -> list[dict]:
+    makerworld_configured = bool(bambu_lab_token(user))
+    makerworld_note = "Bambu Cloud login or MakerWorld session token"
+    if user and cloud_auth_status(user).get("connected"):
+        makerworld_note = "Connected via Bambu Cloud login"
+    elif makerworld_configured:
+        makerworld_note = "Session token or site-wide credential configured"
+
     return [
         {"site": "Printables", "status": "ready", "note": "Works out of the box"},
         {"site": "Thangs", "status": "ready", "note": "May be blocked by Cloudflare from some servers"},
         {
             "site": "MakerWorld",
-            "status": "configured" if bambu_lab_token() else "needs_token",
-            "note": "Bambu Lab token from MakerWorld browser cookie (token)",
+            "status": "configured" if makerworld_configured else "needs_token",
+            "note": makerworld_note,
         },
         {
             "site": "Thingiverse",
@@ -361,11 +380,14 @@ def settings_view(request):
     token, _ = Token.objects.get_or_create(user=request.user)
     api_base = request.build_absolute_uri("/api").rstrip("/")
 
+    from library.extension_pack import extension_version
+
     context = {
         "api_token": token.key,
         "api_base": api_base,
         "active_tab": active_tab,
-        "download_integrations": _download_integrations_status(),
+        "download_integrations": _download_integrations_status(request.user),
+        "extension_version": extension_version(),
     }
 
     from library.dependency_info import CACHE_TTL_SECONDS, get_cached_updates_available, peek_cached_about
@@ -388,6 +410,8 @@ def settings_view(request):
             "bambu_lab_token": bool(config.bambu_lab_token),
             "myminifactory_api_key": bool(config.myminifactory_api_key),
         }
+        context["bambu_cloud_status"] = cloud_auth_status(request.user)
+        context["bambu_cloud_status_json"] = json.dumps(context["bambu_cloud_status"])
 
     if active_tab == "scan":
         config = SiteConfig.get()
@@ -396,6 +420,23 @@ def settings_view(request):
         context["scan_worker_status_json"] = json.dumps(context["scan_worker_status"])
 
     return render(request, "library/settings.html", context)
+
+
+@login_required
+def extension_download_view(request):
+    from library.extension_pack import build_extension_zip
+
+    token, _ = Token.objects.get_or_create(user=request.user)
+    api_base = request.build_absolute_uri("/api").rstrip("/")
+    server_origin = request.build_absolute_uri("/").rstrip("/")
+    payload = build_extension_zip(
+        api_base=api_base,
+        api_token=token.key,
+        server_origin=server_origin,
+    )
+    response = HttpResponse(payload, content_type="application/zip")
+    response["Content-Disposition"] = 'attachment; filename="pick-a-print-extension.zip"'
+    return response
 
 
 @login_required
@@ -409,12 +450,146 @@ def download_integrations_save_view(request):
         {
             "ok": True,
             "message": "Download provider settings saved.",
-            "integrations": _download_integrations_status(),
+            "integrations": _download_integrations_status(request.user),
             "saved": {
                 "thingiverse_api_token": bool(config.thingiverse_api_token),
                 "bambu_lab_token": bool(config.bambu_lab_token),
                 "myminifactory_api_key": bool(config.myminifactory_api_key),
             },
+        }
+    )
+
+
+def _cloud_region(payload: dict) -> str:
+    region = str(payload.get("region", "global")).strip().lower()
+    return "china" if region == "china" else "global"
+
+
+def _complete_cloud_login(request, *, result: dict, email: str, region: str) -> JsonResponse:
+    save_user_cloud_auth(
+        request.user,
+        access_token=result["access_token"],
+        refresh_token=result.get("refresh_token", ""),
+        expires_in=int(result.get("expires_in") or 0),
+        profile=result.get("profile") or {},
+        region=region,
+        email=email,
+    )
+    request.session.pop(BAMBU_CLOUD_SESSION_KEY, None)
+    status = cloud_auth_status(request.user)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result.get("message") or "Connected to Bambu Cloud.",
+            "cloud_status": status,
+            "integrations": _download_integrations_status(request.user),
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def bambu_cloud_login_view(request):
+    payload = _parse_scan_worker_payload(request)
+    email = str(payload.get("email", "")).strip()
+    password = str(payload.get("password", ""))
+    region = _cloud_region(payload)
+
+    if not email or not password:
+        return JsonResponse({"ok": False, "message": "Email and password are required."}, status=400)
+
+    try:
+        result = login_request(email=email, password=password, region=region)
+    except BambuCloudAuthError as exc:
+        return JsonResponse({"ok": False, "message": str(exc)}, status=400)
+
+    if result.get("needs_verification"):
+        request.session[BAMBU_CLOUD_SESSION_KEY] = {
+            "email": email,
+            "region": region,
+            "verification_type": result.get("verification_type"),
+            "tfa_key": result.get("tfa_key"),
+        }
+        return JsonResponse(
+            {
+                "ok": True,
+                "needs_verification": True,
+                "verification_type": result.get("verification_type"),
+                "message": result.get("message") or "Verification required.",
+            }
+        )
+
+    return _complete_cloud_login(request, result=result, email=email, region=region)
+
+
+@login_required
+@require_http_methods(["POST"])
+def bambu_cloud_verify_view(request):
+    payload = _parse_scan_worker_payload(request)
+    pending = request.session.get(BAMBU_CLOUD_SESSION_KEY) or {}
+    email = str(pending.get("email") or payload.get("email", "")).strip()
+    code = str(payload.get("code", "")).strip()
+    region = _cloud_region(pending or payload)
+
+    if not email or not code:
+        return JsonResponse({"ok": False, "message": "Verification code is required."}, status=400)
+
+    try:
+        if pending.get("verification_type") == "totp":
+            tfa_key = pending.get("tfa_key")
+            if not tfa_key:
+                return JsonResponse({"ok": False, "message": "TOTP session expired. Sign in again."}, status=400)
+            result = verify_totp(tfa_key=tfa_key, code=code, region=region)
+        else:
+            result = verify_email_code(email=email, code=code, region=region)
+    except BambuCloudAuthError as exc:
+        return JsonResponse({"ok": False, "message": str(exc)}, status=400)
+
+    return _complete_cloud_login(request, result=result, email=email, region=region)
+
+
+@login_required
+@require_http_methods(["POST"])
+def bambu_cloud_token_view(request):
+    payload = _parse_scan_worker_payload(request)
+    token = str(payload.get("access_token", "")).strip()
+    region = _cloud_region(payload)
+
+    if not token:
+        return JsonResponse({"ok": False, "message": "Access token is required."}, status=400)
+
+    try:
+        profile = validate_access_token(token, region=region)
+    except BambuCloudAuthError as exc:
+        return JsonResponse({"ok": False, "message": str(exc)}, status=400)
+
+    save_user_cloud_auth(
+        request.user,
+        access_token=token,
+        profile=profile,
+        region=region,
+    )
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "Bambu Cloud token saved.",
+            "cloud_status": cloud_auth_status(request.user),
+            "integrations": _download_integrations_status(request.user),
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def bambu_cloud_logout_view(request):
+    clear_user_cloud_auth(request.user)
+    request.session.pop(BAMBU_CLOUD_SESSION_KEY, None)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": "Disconnected from Bambu Cloud.",
+            "cloud_status": cloud_auth_status(request.user),
+            "integrations": _download_integrations_status(request.user),
         }
     )
 

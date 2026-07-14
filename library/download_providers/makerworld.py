@@ -20,11 +20,12 @@ class MakerWorldDownloadProvider:
         return (model.source_site or "").lower() in self.site_names
 
     def list_files(self, model: SavedModel) -> list[RemoteDownloadFile]:
-        token = bambu_lab_token()
+        token = bambu_lab_token(model.user)
         if not token:
             raise DownloadError(
-                "MakerWorld downloads need a Bambu Lab token. "
-                "Add it in Settings → Auto-download, or set BAMBU_LAB_TOKEN in your environment."
+                "MakerWorld downloads need a Bambu Cloud login. "
+                "Connect in Settings → Auto-download, paste your MakerWorld session token, "
+                "or set BAMBU_LAB_TOKEN in your environment."
             )
 
         design_id = model.external_id or _extract_design_id(model.source_url or "")

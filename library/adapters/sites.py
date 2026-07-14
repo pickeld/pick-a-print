@@ -5,10 +5,16 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 from django.conf import settings
+from django.utils.html import strip_tags
 
 from library.adapters.base import FetchedMetadata, canonicalize_model_url, normalize_url, site_from_url
 
 BAMBU_API = "https://api.bambulab.com"
+
+
+def _plain_description(html: str) -> str:
+    text = strip_tags(html or "").strip()
+    return re.sub(r"\n{3,}", "\n\n", text)
 
 
 class GenericOpenGraphAdapter:
@@ -130,13 +136,21 @@ class MakerWorldAdapter(GenericOpenGraphAdapter):
                 if response.ok:
                     design = response.json()
                     creator = (design.get("designCreator") or {}).get("name", "")
+                    summary = design.get("summary") or design.get("summaryTranslated") or ""
+                    tags = design.get("tagsTranslated") or design.get("tags") or []
                     return FetchedMetadata(
                         title=design.get("title") or url,
                         designer=creator,
+                        license=str(design.get("license") or ""),
                         thumbnail_url=design.get("coverUrl", ""),
                         source_site="makerworld.com",
                         external_id=external_id,
-                        metadata={"platform": "makerworld", "fetch_status": "complete"},
+                        metadata={
+                            "platform": "makerworld",
+                            "fetch_status": "complete",
+                            "description": _plain_description(summary),
+                            "source_tags": tags,
+                        },
                     )
             except Exception:
                 pass

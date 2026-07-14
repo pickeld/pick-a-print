@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import urllib.error
+import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -59,6 +61,48 @@ def supported_remote_filename(name: str) -> bool:
     return Path(name).suffix.lower() in SUPPORTED_DOWNLOAD_EXTENSIONS
 
 
+def _is_presigned_s3_url(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host.endswith(".amazonaws.com") or "amazonaws.com" in host
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise DownloadError(f"Redirect not allowed for presigned download URL (HTTP {code})")
+
+
+def _download_presigned_url(
+    url: str,
+    dest: Path,
+    *,
+    max_bytes: int,
+    headers: dict[str, str],
+) -> int:
+    opener = urllib.request.build_opener(_NoRedirectHandler())
+    request = urllib.request.Request(url, headers=headers)
+    downloaded = 0
+    try:
+        with opener.open(request, timeout=settings.METADATA_FETCH_TIMEOUT) as response:
+            with dest.open("wb") as handle:
+                while True:
+                    chunk = response.read(1024 * 64)
+                    if not chunk:
+                        break
+                    downloaded += len(chunk)
+                    if downloaded > max_bytes:
+                        raise DownloadError(f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit")
+                    handle.write(chunk)
+    except urllib.error.HTTPError as exc:
+        raise DownloadError(f"Download failed: HTTP {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise DownloadError(f"Download failed: {exc.reason}") from exc
+
+    if downloaded == 0:
+        dest.unlink(missing_ok=True)
+        raise DownloadError("Downloaded file is empty")
+    return downloaded
+
+
 def download_to_path(
     url: str,
     dest: Path,
@@ -73,6 +117,9 @@ def download_to_path(
     request_headers = {"User-Agent": "pick-a-print/1.0"}
     if headers:
         request_headers.update(headers)
+
+    if _is_presigned_s3_url(url):
+        return _download_presigned_url(url, dest, max_bytes=max_bytes, headers=request_headers)
 
     downloaded = 0
     with requests.get(

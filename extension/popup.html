@@ -9,20 +9,30 @@
     h1 { font-size: 14px; margin: 0 0 12px; }
     label { display: block; font-size: 11px; color: #8b93a7; margin-bottom: 4px; }
     input { width: 100%; box-sizing: border-box; padding: 8px; margin-bottom: 12px; border-radius: 6px; border: 1px solid #2a3040; background: #181c24; color: #e8eaed; }
-    button { width: 100%; padding: 10px; border: none; border-radius: 6px; background: #f59e0b; color: #111; font-weight: 600; cursor: pointer; }
-    .status { font-size: 12px; margin-top: 10px; color: #22c55e; min-height: 18px; }
+    button { width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    button.primary { background: #f59e0b; color: #111; margin-bottom: 8px; }
+    button.secondary { background: #2a3040; color: #e8eaed; }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    .status { font-size: 12px; margin-top: 10px; min-height: 18px; }
+    .status.ok { color: #22c55e; }
+    .status.err { color: #ef4444; }
     a { color: #f59e0b; font-size: 12px; }
+    hr { border: none; border-top: 1px solid #2a3040; margin: 14px 0; }
   </style>
 </head>
 <body>
   <h1>Pick-a-Print</h1>
+  <button id="saveTab" class="primary" type="button">Save current tab</button>
+
+  <hr>
+
   <label for="apiBase">API Base URL</label>
-  <input id="apiBase" placeholder="http://127.0.0.1:8000/api" />
+  <input id="apiBase" placeholder="http://your-server:8002/api" />
   <label for="apiToken">API Token</label>
   <input id="apiToken" type="password" placeholder="Paste from Settings page" />
-  <button id="save">Save settings</button>
+  <button id="saveSettings" class="secondary" type="button">Save settings</button>
   <div class="status" id="status"></div>
-  <p style="margin-top:12px"><a href="http://127.0.0.1:8000/settings/" target="_blank">Get token from Settings →</a></p>
+  <p style="margin-top:12px"><a id="settingsLink" href="#" target="_blank" rel="noopener">Open Settings →</a></p>
   <script src="popup.js"></script>
 </body>
 </html>

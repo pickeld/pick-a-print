@@ -33,6 +33,22 @@
       {% if model.license %}
         <li><span class="label">License</span> {{ model.license }}</li>
       {% endif %}
+      {% if model.metadata.description %}
+        <li class="model-detail-description">
+          <span class="label">Description</span>
+          <div class="model-detail-description-body">{{ model.metadata.description|linebreaksbr }}</div>
+        </li>
+      {% endif %}
+      {% if model.metadata.source_tags %}
+        <li class="model-detail-meta-tags">
+          <span class="label">Source tags</span>
+          <span class="tags-row">
+            {% for tag in model.metadata.source_tags %}
+              <span class="tag-pill tag-pill-muted">{{ tag }}</span>
+            {% endfor %}
+          </span>
+        </li>
+      {% endif %}
       <li><span class="label">Saved</span> {{ model.created_at|date:"M j, Y" }}</li>
       {% if model.tags.all %}
         <li class="model-detail-meta-tags">

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
 
 
@@ -167,6 +168,45 @@ class ScanJob(models.Model):
     @property
     def is_completed(self) -> bool:
         return self.stage == "COMPLETED"
+
+
+class UserBambuCloudAuth(models.Model):
+    """Per-user Bambu Cloud credentials for MakerWorld downloads."""
+
+    REGION_GLOBAL = "global"
+    REGION_CHINA = "china"
+    REGION_CHOICES = [
+        (REGION_GLOBAL, "Global"),
+        (REGION_CHINA, "China"),
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bambu_cloud_auth",
+    )
+    access_token = models.CharField(max_length=512)
+    refresh_token = models.CharField(max_length=512, blank=True)
+    token_expiry = models.DateTimeField(null=True, blank=True)
+    bambu_uid = models.CharField(max_length=64, blank=True)
+    bambu_name = models.CharField(max_length=200, blank=True)
+    bambu_email = models.CharField(max_length=254, blank=True)
+    region = models.CharField(max_length=16, choices=REGION_CHOICES, default=REGION_GLOBAL)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Bambu Cloud auth"
+        verbose_name_plural = "Bambu Cloud auth"
+
+    def __str__(self) -> str:
+        label = self.bambu_name or self.bambu_email or str(self.user)
+        return f"Bambu Cloud: {label}"
+
+    @property
+    def is_expired(self) -> bool:
+        if not self.token_expiry:
+            return False
+        return timezone.now() >= self.token_expiry
 
 
 class SiteConfig(models.Model):

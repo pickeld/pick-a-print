@@ -7,9 +7,12 @@
 {% if active_tab == 'about' %}
 <script src="{% static 'library/js/about.js' %}" defer></script>
 {% elif active_tab == 'downloads' %}
+<script src="{% static 'library/js/bambu_cloud.js' %}" defer></script>
 <script src="{% static 'library/js/download_integrations.js' %}" defer></script>
 {% elif active_tab == 'scan' %}
 <script src="{% static 'library/js/scan_worker.js' %}" defer></script>
+{% elif active_tab == 'api' %}
+<script src="{% static 'library/js/extension_install.js' %}" defer></script>
 {% endif %}
 {% endblock %}
 
@@ -57,7 +60,7 @@
           <td>
             {% if row.status == 'ready' %}<span class="badge badge-status saved">Ready</span>
             {% elif row.status == 'configured' %}<span class="badge badge-status downloaded">Configured</span>
-            {% elif row.status == 'needs_token' %}<span class="badge badge-status saved">Needs token</span>
+            {% elif row.status == 'needs_token' %}<span class="badge badge-status saved">Needs login</span>
             {% else %}<span class="badge badge-status">Limited</span>{% endif %}
           </td>
           <td class="text-muted">{{ row.note }}</td>
@@ -67,19 +70,88 @@
     </table>
   </div>
 
-  <h3 style="font-size:1rem;margin:0 0 0.75rem">Provider credentials</h3>
+  <div
+    id="bambu-cloud-panel"
+    class="bambu-cloud-panel"
+    data-login-url="{% url 'bambu_cloud_login' %}"
+    data-verify-url="{% url 'bambu_cloud_verify' %}"
+    data-token-url="{% url 'bambu_cloud_token' %}"
+    data-logout-url="{% url 'bambu_cloud_logout' %}"
+    data-initial-status="{{ bambu_cloud_status_json|escapejs }}"
+  >
+    <h3 style="font-size:1rem;margin:0 0 0.75rem">MakerWorld — Bambu Cloud</h3>
+    <p class="helptext" style="margin-top:0">MakerWorld has no public API key. Connect your Bambu Cloud account to auto-download 3MF files and import descriptions.</p>
+
+    <div id="bambu-cloud-connected" class="hidden">
+      <p class="text-muted" style="margin:0 0 0.75rem">
+        Connected as <strong id="bambu-cloud-name"></strong>
+        <span id="bambu-cloud-region-badge" class="badge badge-site"></span>
+      </p>
+      <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-logout-btn">Disconnect</button>
+    </div>
+
+    <div id="bambu-cloud-login">
+      <div class="form-group">
+        <label for="bambu-cloud-region">Region</label>
+        <select id="bambu-cloud-region" name="region">
+          <option value="global">Global (makerworld.com)</option>
+          <option value="china">China (makerworld.com.cn)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="bambu-cloud-email">Bambu account email</label>
+        <input type="email" id="bambu-cloud-email" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label for="bambu-cloud-password">Password</label>
+        <input type="password" id="bambu-cloud-password" autocomplete="current-password">
+      </div>
+      <div class="about-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-login-btn">Sign in</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-token-toggle">Use session token instead</button>
+      </div>
+    </div>
+
+    <div id="bambu-cloud-verify" class="hidden">
+      <p class="text-muted" id="bambu-cloud-verify-hint">Enter your verification code.</p>
+      <div class="form-group">
+        <label for="bambu-cloud-code">Verification code</label>
+        <input type="text" id="bambu-cloud-code" inputmode="numeric" autocomplete="one-time-code">
+      </div>
+      <div class="about-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-verify-btn">Verify</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-verify-cancel">Back</button>
+      </div>
+    </div>
+
+    <div id="bambu-cloud-token" class="hidden">
+      <div class="form-group">
+        <label for="bambu-cloud-access-token">Session token</label>
+        <input type="password" id="bambu-cloud-access-token" autocomplete="off" placeholder="token cookie from makerworld.com">
+        <div class="helptext">Log in to MakerWorld → DevTools → Application → Cookies → copy the <code>token</code> value (starts with <code>AAB_</code>).</div>
+      </div>
+      <div class="about-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="bambu-cloud-token-save">Save token</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="bambu-cloud-token-cancel">Back to sign in</button>
+      </div>
+    </div>
+
+    <div id="bambu-cloud-message" class="text-muted" aria-live="polite" style="margin-top:0.75rem"></div>
+  </div>
+
+  <h3 style="font-size:1rem;margin:1.5rem 0 0.75rem">Other provider credentials</h3>
 
   <div class="form-group">
-    <label for="bambu-lab-token">MakerWorld (Bambu Lab token)</label>
+    <label for="bambu-lab-token">MakerWorld fallback token (site-wide)</label>
     <input
       type="password"
       id="bambu-lab-token"
       name="bambu_lab_token"
       value=""
-      placeholder="{% if download_config.bambu_lab_token %}•••••••• (saved){% else %}Cookie named token from makerworld.com{% endif %}"
+      placeholder="{% if download_config.bambu_lab_token %}•••••••• (saved){% else %}Optional — for all users if Bambu Cloud login is not used{% endif %}"
       autocomplete="new-password"
     >
-    <div class="helptext">Log in to MakerWorld, copy the <code>token</code> cookie value. Leave blank to keep the saved token.</div>
+    <div class="helptext">Optional site-wide fallback. Per-user Bambu Cloud login above is preferred.</div>
   </div>
 
   <div class="form-group">
@@ -242,11 +314,37 @@
 </div>
 
 {% elif active_tab == 'api' %}
+<div class="form-card extension-install-card" style="max-width:720px;margin-bottom:1.25rem">
+  <h3 style="font-size:1rem;margin:0 0 0.5rem">Browser extension</h3>
+  <p class="helptext" style="margin:0 0 1rem">
+    Save models from Printables, MakerWorld, and other sites without opening Pick-a-Print.
+    Your API credentials are bundled in the download.
+  </p>
+  <div class="extension-install-actions">
+    <a href="{% url 'extension_download' %}" class="btn btn-primary" id="extension-download-btn">
+      Download extension (v{{ extension_version }})
+    </a>
+    <span class="helptext">Chrome · Edge · Brave</span>
+  </div>
+
+  <ol class="extension-install-steps">
+    <li>Click <strong>Download extension</strong> above and unzip the file.</li>
+    <li>Open <code>chrome://extensions</code> in your browser.</li>
+    <li>Enable <strong>Developer mode</strong> (top right).</li>
+    <li>Click <strong>Load unpacked</strong> and select the <code>pick-a-print-extension</code> folder.</li>
+    <li>On a model page, click <strong>Save to Library</strong> or use <strong>Save current tab</strong> in the extension popup.</li>
+  </ol>
+  <p class="helptext" style="margin-bottom:0">
+    Chrome does not allow one-click install for self-hosted extensions — download and load unpacked is required once per browser.
+  </p>
+</div>
+
 <div class="form-card" style="max-width:640px">
+  <h3 style="font-size:1rem;margin:0 0 0.75rem">API credentials</h3>
   <div class="form-group">
     <label>API Base URL</label>
     <input type="text" readonly value="{{ api_base }}" id="api-base" onclick="this.select()">
-    <div class="helptext">Use this in the extension popup (e.g. http://127.0.0.1:8000/api)</div>
+    <div class="helptext">Included automatically in the extension download</div>
   </div>
 
   <div class="form-group">
@@ -254,15 +352,6 @@
     <input type="text" readonly value="{{ api_token }}" id="api-token" onclick="this.select()">
     <div class="helptext">Keep this private. Regenerate by deleting the token in Django admin.</div>
   </div>
-
-  <h3 style="font-size:1rem;margin:1.5rem 0 0.75rem">Browser Extension</h3>
-  <ol style="color:var(--text-muted);font-size:0.9rem;line-height:1.7;padding-left:1.2rem">
-    <li>Open <code>chrome://extensions</code></li>
-    <li>Enable <strong>Developer mode</strong></li>
-    <li>Click <strong>Load unpacked</strong></li>
-    <li>Select the <code>extension/</code> folder in this project</li>
-    <li>Click the extension icon and paste API URL + Token</li>
-  </ol>
 </div>
 
 {% else %}
