@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag
+from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag, UserBambuCloudAuth
 
 
 @admin.register(ModelFile)
@@ -68,3 +68,10 @@ class SiteConfigAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description="MMF key set")
     def has_myminifactory_key(self, obj: SiteConfig) -> bool:
         return bool(obj.myminifactory_api_key)
+
+
+@admin.register(UserBambuCloudAuth)
+class UserBambuCloudAuthAdmin(admin.ModelAdmin):
+    list_display = ["user", "bambu_name", "bambu_email", "region", "updated_at"]
+    search_fields = ["user__username", "bambu_name", "bambu_email", "bambu_uid"]
+    readonly_fields = ["updated_at"]

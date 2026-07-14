@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 BAMBU_API_GLOBAL = "https://api.bambulab.com"
 BAMBU_API_CHINA = "https://api.bambulab.cn"
-TFA_URL_GLOBAL = "https://bambulab.com/api/sign-in/tfa"
-TFA_URL_CHINA = "https://bambulab.cn/api/sign-in/tfa"
 USER_AGENT = "pick-a-print/1.0"
 
 _CF_MESSAGE = (
@@ -36,8 +34,8 @@ def api_base(region: str) -> str:
     return BAMBU_API_CHINA if region == "china" else BAMBU_API_GLOBAL
 
 
-def tfa_url(region: str) -> str:
-    return TFA_URL_CHINA if region == "china" else TFA_URL_GLOBAL
+def tfa_login_url(region: str) -> str:
+    return f"{api_base(region)}/v1/user-service/user/tfa/login"
 
 
 def _timeout() -> int:
@@ -132,9 +130,36 @@ def verify_email_code(*, email: str, code: str, region: str = "global") -> dict:
     raise BambuCloudAuthError(str(message))
 
 
+def _auth_error_message(response: requests.Response, data: dict) -> str:
+    cf = _detect_cloudflare(response)
+    if cf:
+        return cf
+
+    error = str(data.get("error") or data.get("message") or "").strip()
+    code = data.get("code")
+
+    if response.status_code == 403:
+        return (
+            "Bambu Cloud blocked the verification request from this server. "
+            "Use “Use session token instead” and paste your MakerWorld token cookie, "
+            "or sign in to bambulab.com once from a browser on the same network and retry."
+        )
+
+    if code == 5 or "login failed" in error.lower():
+        return "Invalid authenticator code or expired sign-in session. Sign in again and enter a fresh code."
+
+    if "expired" in error.lower():
+        return "TOTP session expired. Sign in again."
+
+    if error:
+        return error
+
+    return f"Verification failed (HTTP {response.status_code})"
+
+
 def verify_totp(*, tfa_key: str, code: str, region: str = "global") -> dict:
     response = requests.post(
-        tfa_url(region),
+        tfa_login_url(region),
         headers={**_json_headers(), "Accept": "application/json"},
         json={"tfaKey": tfa_key, "tfaCode": code.strip()},
         timeout=_timeout(),
@@ -144,11 +169,6 @@ def verify_totp(*, tfa_key: str, code: str, region: str = "global") -> dict:
 
     data = _parse_json(response)
     access_token = data.get("accessToken") or data.get("token")
-    if not access_token:
-        for name, value in response.cookies.items():
-            if "token" in name.lower() and value:
-                access_token = value
-                break
 
     if response.status_code == 200 and access_token:
         profile = fetch_profile(access_token, region=region)
@@ -160,10 +180,7 @@ def verify_totp(*, tfa_key: str, code: str, region: str = "global") -> dict:
             "message": "Login successful.",
         }
 
-    message = data.get("message") or f"TOTP verification failed (HTTP {response.status_code})"
-    if "expired" in message.lower():
-        message = "TOTP session expired. Please sign in again."
-    raise BambuCloudAuthError(str(message))
+    raise BambuCloudAuthError(_auth_error_message(response, data))
 
 
 def fetch_profile(access_token: str, *, region: str = "global") -> dict:

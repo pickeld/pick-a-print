@@ -1198,6 +1198,23 @@ body.collection-modal-open {
 
 .model-detail-meta-tags .tags-row {
   margin: 0;
+  flex-wrap: wrap;
+}
+
+.model-detail-description-body {
+  margin-top: 0.35rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.tag-pill-muted {
+  opacity: 0.85;
+}
+
+.bambu-cloud-panel {
+  margin-bottom: 0.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
 }
 
 .model-detail-notice {
