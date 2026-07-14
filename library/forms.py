@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 
 from django.utils.text import slugify
 
-from library.collection_icons import COLLECTION_ICONS, DEFAULT_COLLECTION_ICON
+from library.collection_icons import DEFAULT_COLLECTION_ICON, is_valid_collection_icon
 from library.models import NO_COLLECTION_SLUG, Collection, ModelStatus, SavedModel
 
 
@@ -92,7 +92,7 @@ class CollectionForm(forms.ModelForm):
 
     def clean_icon(self):
         icon = (self.cleaned_data.get("icon") or DEFAULT_COLLECTION_ICON).strip().lower()
-        if icon not in COLLECTION_ICONS:
+        if not is_valid_collection_icon(icon):
             raise forms.ValidationError("Choose a valid icon.")
         return icon
 

@@ -24,8 +24,7 @@ class MakerWorldDownloadProvider:
         if not token:
             raise DownloadError(
                 "MakerWorld downloads need a Bambu Cloud login. "
-                "Connect in Settings → Integrations, paste your MakerWorld session token, "
-                "or set BAMBU_LAB_TOKEN in your environment."
+                "Connect in Settings → Integrations or paste your MakerWorld session token."
             )
 
         design_id = model.external_id or _extract_design_id(model.source_url or "")

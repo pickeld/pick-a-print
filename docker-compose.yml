@@ -61,8 +61,6 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: scans
-      THINGIVERSE_API_TOKEN: ${THINGIVERSE_API_TOKEN:-}
-      BAMBU_LAB_TOKEN: ${BAMBU_LAB_TOKEN:-}
       CLOUDFLARE_PROXY: "true"
       CLOUDFLARE_MAX_UPLOAD_MB: "100"
       SCAN_MAX_UPLOAD_MB: "200"
@@ -87,8 +85,6 @@ services:
       DATABASE_URL: postgres://pick_a_print:pick_a_print@db:5432/pick_a_print
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
-      THINGIVERSE_API_TOKEN: ${THINGIVERSE_API_TOKEN:-}
-      BAMBU_LAB_TOKEN: ${BAMBU_LAB_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy

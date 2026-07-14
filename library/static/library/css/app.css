@@ -1672,26 +1672,6 @@ body.collection-modal-open {
   color: var(--text-muted);
 }
 
-.integrations-env-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.45rem;
-  margin: 1.15rem 0 0;
-  padding: 0.8rem 0.95rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-  background: var(--bg-elevated);
-  border: 1px dashed var(--border);
-}
-
-.integrations-env-note .mdi {
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-  color: var(--accent);
-}
-
 .integration-card--printables { --brand-color: #fa6e28; --brand-glow: rgba(250, 110, 40, 0.18); }
 .integration-card--thangs { --brand-color: #7c6cf0; --brand-glow: rgba(124, 108, 240, 0.18); }
 .integration-card--makerworld { --brand-color: #00ae42; --brand-glow: rgba(0, 174, 66, 0.18); }

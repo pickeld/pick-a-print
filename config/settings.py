@@ -194,9 +194,6 @@ DOWNLOAD_ALLOWED_HOSTS = tuple(
     if host.strip()
 )
 
-THINGIVERSE_API_TOKEN = os.getenv("THINGIVERSE_API_TOKEN", "")
-BAMBU_LAB_TOKEN = os.getenv("BAMBU_LAB_TOKEN", "")
-
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"

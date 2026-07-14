@@ -2,6 +2,7 @@
   id="collection-create-modal"
   class="collection-modal"
   data-collection-create-modal
+  data-mdi-icons-url="{% static 'library/data/mdi-icons.json' %}?v={{ static_asset_version }}"
   hidden
   role="dialog"
   aria-modal="true"
@@ -44,7 +45,16 @@
       </div>
 
       <div class="form-group">
-        <label>Icon</label>
+        <label for="collection-create-icon-search">Icon</label>
+        <input
+          type="search"
+          id="collection-create-icon-search"
+          class="collection-icon-search"
+          placeholder="Search icons…"
+          autocomplete="off"
+          data-collection-icon-search
+        >
+        <p class="collection-icon-search-hint" data-collection-icon-hint>Popular icons — search for any Material Design icon</p>
         <div class="collection-icon-picker" data-collection-icon-picker></div>
       </div>
 

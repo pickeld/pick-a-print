@@ -247,11 +247,6 @@
     </details>
     {% endfor %}
   </div>
-
-  <p class="integrations-env-note">
-    <span class="mdi mdi-console" aria-hidden="true"></span>
-    Environment variables <code>BAMBU_LAB_TOKEN</code> and <code>THINGIVERSE_API_TOKEN</code> still work as fallbacks.
-  </p>
 </div>
 {{ bambu_cloud_status|json_script:"bambu-cloud-status-data" }}
 {% if integrations_flash %}{{ integrations_flash|json_script:"integrations-flash-data" }}{% endif %}
