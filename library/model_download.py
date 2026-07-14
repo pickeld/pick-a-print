@@ -9,7 +9,8 @@ from django.db import transaction
 
 from library.download_providers import get_download_provider
 from library.download_providers.base import RemoteDownloadFile
-from library.downloads import DownloadError, download_to_path
+from library.downloads import DownloadError, download_to_path, is_convertible_remote_filename
+from library.mesh_convert import MeshConvertError, convert_mesh_to_stl
 from library.models import ModelFile, ModelStatus, SavedModel
 
 logger = logging.getLogger(__name__)
@@ -43,11 +44,30 @@ def _attach_downloaded_file(model: SavedModel, *, original_name: str, temp_path:
     return model_file
 
 
-def _download_remote_file(remote: RemoteDownloadFile) -> Path:
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+def _prepare_downloaded_file(remote: RemoteDownloadFile, temp_path: Path) -> tuple[Path, str]:
+    if not is_convertible_remote_filename(remote.name):
+        return temp_path, remote.name
+
+    stl_path = temp_path.with_suffix(".stl")
+    try:
+        convert_mesh_to_stl(temp_path, stl_path)
+    except MeshConvertError as exc:
+        temp_path.unlink(missing_ok=True)
+        raise DownloadError(str(exc)) from exc
+    finally:
+        if temp_path.exists():
+            temp_path.unlink(missing_ok=True)
+
+    stl_name = Path(remote.name).with_suffix(".stl").name
+    return stl_path, stl_name
+
+
+def _download_remote_file_for_attach(remote: RemoteDownloadFile) -> tuple[Path, str]:
+    suffix = Path(remote.name).suffix or ".bin"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         temp_path = Path(tmp.name)
     download_to_path(remote.url, temp_path, headers=remote.headers)
-    return temp_path
+    return _prepare_downloaded_file(remote, temp_path)
 
 
 def download_files_for_model(model: SavedModel) -> dict:
@@ -70,16 +90,17 @@ def download_files_for_model(model: SavedModel) -> dict:
         return {"status": "failed", "error": str(exc)}
 
     if not remote_files:
-        return {"status": "failed", "error": "No STL or 3MF files found for this model"}
+        return {"status": "failed", "error": "No downloadable mesh files found for this model"}
 
     downloaded: list[dict] = []
     errors: list[str] = []
 
     for remote in remote_files[:MAX_FILES_PER_MODEL]:
         temp_path: Path | None = None
+        original_name = remote.name
         try:
-            temp_path = _download_remote_file(remote)
-            model_file = _attach_downloaded_file(model, original_name=remote.name, temp_path=temp_path)
+            temp_path, original_name = _download_remote_file_for_attach(remote)
+            model_file = _attach_downloaded_file(model, original_name=original_name, temp_path=temp_path)
             _queue_file_processing(model_file.id)
             downloaded.append({"id": model_file.id, "name": model_file.original_name, "size": model_file.file_size})
         except (DownloadError, OSError) as exc:
@@ -95,6 +116,7 @@ def download_files_for_model(model: SavedModel) -> dict:
     model.status = ModelStatus.DOWNLOADED
     meta = model.metadata or {}
     meta["download_status"] = "complete"
+    meta.pop("download_error", None)
     meta["downloaded_files"] = downloaded
     if errors:
         meta["download_warnings"] = errors

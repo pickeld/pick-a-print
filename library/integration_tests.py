@@ -14,7 +14,6 @@ from library.models import UserBambuCloudAuth
 from library.provider_credentials import bambu_lab_token, myminifactory_api_key, thingiverse_api_token
 
 THINGIVERSE_API = "https://api.thingiverse.com"
-MMF_API = "https://www.myminifactory.com/api/v2"
 THANGS_TEST_MODEL_ID = "169424"
 
 
@@ -105,23 +104,58 @@ def test_thingiverse(*, api_token: str = "") -> IntegrationTestResult:
         return IntegrationTestResult(False, f"Could not verify Thingiverse token: {exc}")
 
 
-def test_myminifactory(*, api_key: str = "") -> IntegrationTestResult:
-    key = api_key.strip() or myminifactory_api_key()
-    if not key:
-        return IntegrationTestResult(False, "Add a MyMiniFactory API key first.")
+def test_myminifactory(*, api_key: str = "", client_secret: str = "", user=None) -> IntegrationTestResult:
+    from library.myminifactory_oauth import (
+        MyMiniFactoryAuthError,
+        client_key,
+        client_secret as stored_client_secret,
+        default_oauth_callback_url,
+        user_access_token,
+        validate_access_token,
+        validate_app_credentials,
+        validate_app_slug,
+    )
+
+    slug = api_key.strip() or client_key()
+    if client_secret.strip():
+        secret = client_secret.strip()
+    elif api_key.strip():
+        secret = ""
+    else:
+        secret = stored_client_secret()
+    access_token = user_access_token(user) if user else ""
+
+    if not slug:
+        return IntegrationTestResult(
+            False,
+            "Add your MyMiniFactory app slug (client key) from the developer app page first.",
+        )
 
     try:
-        response = requests.get(
-            f"{MMF_API}/user",
-            params={"key": key},
-            timeout=_timeout(),
-        )
-        if response.status_code in (401, 403):
-            return IntegrationTestResult(False, "MyMiniFactory API key is invalid or lacks permission.")
-        response.raise_for_status()
-        return IntegrationTestResult(True, "MyMiniFactory API key is valid.")
-    except requests.RequestException as exc:
-        return IntegrationTestResult(False, f"Could not verify MyMiniFactory key: {exc}")
+        validate_app_slug(slug)
+    except MyMiniFactoryAuthError as exc:
+        return IntegrationTestResult(False, str(exc))
+
+    if access_token:
+        try:
+            profile = validate_access_token(access_token)
+        except MyMiniFactoryAuthError as exc:
+            return IntegrationTestResult(False, str(exc))
+
+        name = profile.get("username") or profile.get("name") or "your account"
+        return IntegrationTestResult(True, f"MyMiniFactory connected as {name}. Downloads are enabled.")
+
+    if secret:
+        try:
+            validate_app_credentials(slug, secret, redirect_uri=default_oauth_callback_url())
+        except MyMiniFactoryAuthError as exc:
+            return IntegrationTestResult(False, str(exc))
+
+    return IntegrationTestResult(
+        False,
+        "App slug looks valid, but your MyMiniFactory account is not connected yet. "
+        "Click Connect MyMiniFactory above, sign in, then test again.",
+    )
 
 
 def test_cults3d() -> IntegrationTestResult:
@@ -145,6 +179,8 @@ def run_integration_test(integration_id: str, user, payload: dict | None = None)
         ),
         "myminifactory": lambda: test_myminifactory(
             api_key=str(payload.get("myminifactory_api_key", "")),
+            client_secret=str(payload.get("myminifactory_client_secret", "")),
+            user=user,
         ),
         "cults3d": test_cults3d,
     }

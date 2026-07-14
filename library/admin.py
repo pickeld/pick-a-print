@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag, UserBambuCloudAuth
+from library.models import Collection, ModelFile, SavedModel, ScanJob, SiteConfig, Tag, UserBambuCloudAuth, UserMyMiniFactoryAuth
 
 
 @admin.register(ModelFile)
@@ -74,4 +74,11 @@ class SiteConfigAdmin(admin.ModelAdmin):
 class UserBambuCloudAuthAdmin(admin.ModelAdmin):
     list_display = ["user", "bambu_name", "bambu_email", "region", "updated_at"]
     search_fields = ["user__username", "bambu_name", "bambu_email", "bambu_uid"]
+    readonly_fields = ["updated_at"]
+
+
+@admin.register(UserMyMiniFactoryAuth)
+class UserMyMiniFactoryAuthAdmin(admin.ModelAdmin):
+    list_display = ["user", "username", "mmf_user_id", "updated_at"]
+    search_fields = ["user__username", "username", "mmf_user_id"]
     readonly_fields = ["updated_at"]

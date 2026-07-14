@@ -6,7 +6,7 @@ import requests
 from django.conf import settings
 
 from library.download_providers.base import RemoteDownloadFile
-from library.downloads import DownloadError, supported_remote_filename
+from library.downloads import DownloadError, downloadable_remote_filename, unsupported_files_message
 from library.models import SavedModel
 from library.provider_credentials import thingiverse_api_token
 
@@ -42,9 +42,12 @@ class ThingiverseDownloadProvider:
         response.raise_for_status()
 
         files: list[RemoteDownloadFile] = []
+        skipped: list[str] = []
         for item in response.json() or []:
             name = item.get("name") or ""
-            if not supported_remote_filename(name):
+            if not downloadable_remote_filename(name):
+                if name:
+                    skipped.append(name)
                 continue
             url = item.get("download_url") or item.get("direct_url")
             if not url:
@@ -57,6 +60,8 @@ class ThingiverseDownloadProvider:
                     headers=headers,
                 )
             )
+        if not files and skipped:
+            raise DownloadError(unsupported_files_message(skipped))
         return files
 
 

@@ -176,3 +176,47 @@ def _title_from_url(url: str) -> str:
         return match.group(1).replace("-", " ").replace("_", " ").title()
     path = url.rstrip("/").split("/")[-1]
     return path.replace("-", " ").replace("_", " ").title() or url
+
+
+def repair_model_display_fields(model: SavedModel) -> bool:
+    """Normalize title/designer for link models saved before site parsers were updated."""
+    if model.source_type != SourceType.LINK:
+        return False
+
+    site = (model.source_site or "").lower()
+    platform = (model.metadata or {}).get("platform", "")
+    raw_title = model.title or ""
+    designer = (model.designer or "").strip()
+
+    parsed_title = raw_title
+    parsed_designer = designer
+
+    if "myminifactory" in site or platform == "myminifactory":
+        from library.adapters.sites import MyMiniFactoryAdapter
+
+        parsed_title, parsed_designer = MyMiniFactoryAdapter()._parse_mmf_title(raw_title)
+    elif "printables" in site or platform == "printables":
+        from library.adapters.sites import PrintablesAdapter
+
+        parsed_title, parsed_designer = PrintablesAdapter()._parse_printables_title(raw_title)
+
+    if not parsed_designer:
+        author = (model.metadata or {}).get("author")
+        if isinstance(author, dict):
+            parsed_designer = str(author.get("name") or "").strip()
+        elif isinstance(author, str):
+            parsed_designer = author.strip()
+
+    update_fields: list[str] = []
+    if parsed_title and parsed_title != raw_title:
+        model.title = parsed_title
+        update_fields.append("title")
+    if parsed_designer and not designer:
+        model.designer = parsed_designer
+        update_fields.append("designer")
+
+    if not update_fields:
+        return False
+
+    model.save(update_fields=[*update_fields, "updated_at"])
+    return True

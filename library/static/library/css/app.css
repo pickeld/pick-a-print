@@ -1191,6 +1191,12 @@ body.collection-modal-open {
   flex-shrink: 0;
 }
 
+.model-detail-description {
+  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .model-detail-meta-tags {
   grid-column: 1 / -1;
   align-items: center;

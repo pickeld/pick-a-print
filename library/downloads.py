@@ -11,6 +11,7 @@ import requests
 from django.conf import settings
 
 SUPPORTED_DOWNLOAD_EXTENSIONS = {".stl", ".3mf"}
+CONVERTIBLE_DOWNLOAD_EXTENSIONS = {".obj"}
 MODEL_UPLOAD_EXTENSIONS = SUPPORTED_DOWNLOAD_EXTENSIONS
 
 
@@ -59,6 +60,29 @@ def _validate_download_url(url: str) -> str:
 
 def supported_remote_filename(name: str) -> bool:
     return Path(name).suffix.lower() in SUPPORTED_DOWNLOAD_EXTENSIONS
+
+
+def downloadable_remote_filename(name: str) -> bool:
+    ext = Path(name).suffix.lower()
+    return ext in SUPPORTED_DOWNLOAD_EXTENSIONS or ext in CONVERTIBLE_DOWNLOAD_EXTENSIONS
+
+
+def is_convertible_remote_filename(name: str) -> bool:
+    return Path(name).suffix.lower() in CONVERTIBLE_DOWNLOAD_EXTENSIONS
+
+
+def unsupported_files_message(found_names: list[str]) -> str:
+    if not found_names:
+        return "No STL or 3MF files found for this model"
+    sample = ", ".join(found_names[:4])
+    if len(found_names) > 4:
+        sample = f"{sample} (+{len(found_names) - 4} more)"
+    extensions = sorted({Path(name).suffix.lower() or "unknown" for name in found_names})
+    ext_label = ", ".join(ext.lstrip(".") or "unknown" for ext in extensions)
+    return (
+        f"This model only has unsupported file types ({ext_label}): {sample}. "
+        "Pick-a-Print needs STL or 3MF files — upload them manually on this page."
+    )
 
 
 def _is_presigned_s3_url(url: str) -> bool:

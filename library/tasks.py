@@ -14,8 +14,10 @@ def enrich_model_metadata(self, model_id: int) -> str:
 
     fetched = fetch_metadata_from_url(model.source_url)
 
-    model.title = fetched.title or model.title
-    model.designer = fetched.designer or model.designer
+    if fetched.title:
+        model.title = fetched.title
+    if fetched.designer:
+        model.designer = fetched.designer
     model.license = fetched.license or model.license
     model.thumbnail_url = fetched.thumbnail_url or model.thumbnail_url
     model.source_site = fetched.source_site or model.source_site

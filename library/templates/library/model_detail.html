@@ -73,13 +73,24 @@
 
   {% if model.source_type == 'link' and model.metadata.download_status == 'pending' and not model_files %}
   <div class="form-card model-detail-notice">
-    <p class="text-muted" style="margin:0">Downloading model files from {{ model.source_site|site_label }}…</p>
+    <p class="text-muted" style="margin:0">Fetching files from {{ model.source_site|site_label }}…</p>
   </div>
   {% elif model.metadata.download_error and not model_files %}
   <div class="form-card model-detail-notice">
     <p class="text-muted" style="margin:0">Could not download files automatically: {{ model.metadata.download_error }}</p>
+    {% if model.source_site == 'myminifactory.com' or model.metadata.platform == 'myminifactory' %}
+    <p class="text-muted" style="margin:0.5rem 0 0">
+      <a href="{% url 'settings' %}?tab=integrations">Open Settings → Integrations</a> to connect MyMiniFactory, then retry.
+    </p>
+    {% endif %}
+    <form method="post" style="margin:0.75rem 0 0">
+      {% csrf_token %}
+      <button type="submit" name="retry_download" value="1" class="btn btn-secondary btn-sm">Retry download</button>
+    </form>
   </div>
-  {% elif not model_files and model.thumbnail_url %}
+  {% endif %}
+
+  {% if not model_files and model.thumbnail_url %}
   <div class="model-parts-grid model-parts-grid--single">
     <article class="part-card">
       <div class="part-card-preview part-card-preview--image">
@@ -87,7 +98,9 @@
       </div>
       <div class="part-card-body">
         <h3 class="part-card-title">{{ model.title }}</h3>
+        {% if not model.metadata.download_error %}
         <p class="text-muted part-card-empty">No mesh files downloaded yet.</p>
+        {% endif %}
       </div>
     </article>
   </div>

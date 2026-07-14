@@ -1,0 +1,48 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Connecting MyMiniFactory…</title>
+  <link rel="stylesheet" href="{% static 'library/css/app.css' %}">
+  <script>
+  window.__mmfOAuthHash = window.location.hash || "";
+  window.__mmfOAuthSearch = window.location.search || "";
+  </script>
+</head>
+<body>
+<main class="mmf-oauth-callback">
+  <div class="mmf-oauth-callback__card">
+    <h1>Connecting MyMiniFactory</h1>
+    <p id="mmf-oauth-status">Loading…</p>
+  </div>
+</main>
+<style>
+  .mmf-oauth-callback {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: var(--bg, #0f1115);
+    color: var(--text, #e8eaed);
+  }
+  .mmf-oauth-callback__card {
+    max-width: 28rem;
+    text-align: center;
+  }
+  .mmf-oauth-callback__card h1 {
+    font-size: 1.25rem;
+    margin: 0 0 0.75rem;
+  }
+  .mmf-oauth-callback__card p {
+    margin: 0;
+    color: var(--muted, #9aa0a6);
+  }
+</style>
+{{ mmf_oauth_config|json_script:"mmf-oauth-config-data" }}
+<script src="{% static 'library/js/mmf_oauth_callback.js' %}?v={{ static_asset_version }}"></script>
+</body>
+</html>

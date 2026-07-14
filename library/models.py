@@ -209,6 +209,36 @@ class UserBambuCloudAuth(models.Model):
         return timezone.now() >= self.token_expiry
 
 
+class UserMyMiniFactoryAuth(models.Model):
+    """Per-user MyMiniFactory OAuth credentials for file downloads."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="myminifactory_auth",
+    )
+    access_token = models.CharField(max_length=512)
+    refresh_token = models.CharField(max_length=512, blank=True)
+    token_expiry = models.DateTimeField(null=True, blank=True)
+    mmf_user_id = models.CharField(max_length=64, blank=True)
+    username = models.CharField(max_length=200, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "MyMiniFactory auth"
+        verbose_name_plural = "MyMiniFactory auth"
+
+    def __str__(self) -> str:
+        label = self.username or str(self.user)
+        return f"MyMiniFactory: {label}"
+
+    @property
+    def is_expired(self) -> bool:
+        if not self.token_expiry:
+            return False
+        return timezone.now() >= self.token_expiry
+
+
 class SiteConfig(models.Model):
     """Singleton site-wide settings (pk=1)."""
 
@@ -218,6 +248,7 @@ class SiteConfig(models.Model):
     thingiverse_api_token = models.CharField(max_length=255, blank=True)
     bambu_lab_token = models.CharField(max_length=255, blank=True)
     myminifactory_api_key = models.CharField(max_length=255, blank=True)
+    myminifactory_client_secret = models.CharField(max_length=255, blank=True)
     jetson_enabled = models.BooleanField(default=False)
     last_test_at = models.DateTimeField(null=True, blank=True)
     last_test_ok = models.BooleanField(default=False)
