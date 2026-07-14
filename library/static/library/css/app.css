@@ -948,7 +948,7 @@ img {
 
 .collection-modal__panel {
   position: relative;
-  width: min(100%, 420px);
+  width: min(100%, 480px);
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -984,26 +984,49 @@ img {
   margin-top: 1.25rem;
 }
 
+.collection-icon-search {
+  margin-bottom: 0.45rem;
+}
+
+.collection-icon-search-hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .collection-icon-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(2.35rem, 1fr));
-  gap: 0.4rem;
-  max-height: 11rem;
+  grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
+  gap: 0.5rem;
+  max-height: 15rem;
   overflow: auto;
-  padding: 0.15rem;
+  padding: 0.2rem;
+}
+
+.collection-icon-picker__empty {
+  grid-column: 1 / -1;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .collection-icon-option {
   display: grid;
   place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 3rem;
+  height: 3rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   color: var(--text-muted);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.collection-icon-option .mdi {
+  font-size: 1.45rem;
+  line-height: 1;
 }
 
 .collection-icon-option:hover {

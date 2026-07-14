@@ -4,8 +4,12 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 const DEFAULT_COLLECTION_ICON = "folder";
+const MAX_VISIBLE_ICONS = 120;
 
-function readCollectionIcons() {
+let allMdiIcons = null;
+let mdiIconsPromise = null;
+
+function readSuggestedIcons() {
   const data = document.getElementById("collection-icons-data");
   if (!data) return [DEFAULT_COLLECTION_ICON];
   try {
@@ -14,6 +18,105 @@ function readCollectionIcons() {
   } catch {
     return [DEFAULT_COLLECTION_ICON];
   }
+}
+
+function loadMdiIcons(modal) {
+  if (allMdiIcons) return Promise.resolve(allMdiIcons);
+  if (mdiIconsPromise) return mdiIconsPromise;
+
+  const url = modal?.dataset.mdiIconsUrl;
+  if (!url) {
+    allMdiIcons = readSuggestedIcons();
+    return Promise.resolve(allMdiIcons);
+  }
+
+  mdiIconsPromise = fetch(url)
+    .then((response) => {
+      if (!response.ok) throw new Error("Failed to load icons");
+      return response.json();
+    })
+    .then((icons) => {
+      allMdiIcons = Array.isArray(icons) && icons.length ? icons : readSuggestedIcons();
+      return allMdiIcons;
+    })
+    .catch(() => {
+      allMdiIcons = readSuggestedIcons();
+      return allMdiIcons;
+    });
+
+  return mdiIconsPromise;
+}
+
+function iconLabel(iconName) {
+  return iconName.replace(/-/g, " ");
+}
+
+function filterIcons(query, suggested, allIcons) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return suggested;
+  return allIcons.filter((icon) => icon.includes(normalized)).slice(0, MAX_VISIBLE_ICONS);
+}
+
+function buildVisibleIcons(query, suggested, allIcons, selectedIcon) {
+  const icons = filterIcons(query, suggested, allIcons);
+  if (selectedIcon && !icons.includes(selectedIcon) && isValidIconName(selectedIcon)) {
+    return [selectedIcon, ...icons];
+  }
+  return icons;
+}
+
+function isValidIconName(iconName) {
+  return typeof iconName === "string" && /^[a-z0-9][a-z0-9-]*$/.test(iconName);
+}
+
+function renderIconButtons(picker, icons, selectedIcon) {
+  if (!picker) return;
+
+  if (!icons.length) {
+    picker.innerHTML = `<p class="collection-icon-picker__empty">No icons match your search.</p>`;
+    return;
+  }
+
+  picker.innerHTML = icons
+    .map((icon) => {
+      const selected = icon === selectedIcon;
+      const label = iconLabel(icon);
+      return `
+        <button
+          type="button"
+          class="collection-icon-option${selected ? " is-selected" : ""}"
+          data-collection-icon-option="${icon}"
+          aria-label="${label}"
+          aria-pressed="${selected ? "true" : "false"}"
+          title="${label}"
+        >
+          <span class="mdi mdi-${icon}" aria-hidden="true"></span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function updateIconHint(hint, query, visibleCount, totalMatches) {
+  if (!hint) return;
+
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    hint.textContent = "Popular icons — search for any Material Design icon";
+    return;
+  }
+
+  if (visibleCount === 0) {
+    hint.textContent = "No icons match your search";
+    return;
+  }
+
+  if (totalMatches > MAX_VISIBLE_ICONS) {
+    hint.textContent = `Showing ${visibleCount} of ${totalMatches} matches — refine your search`;
+    return;
+  }
+
+  hint.textContent = `${visibleCount} icon${visibleCount === 1 ? "" : "s"} found`;
 }
 
 function initCollectionCreateModal() {
@@ -25,41 +128,55 @@ function initCollectionCreateModal() {
   const iconInput = form.querySelector("[data-collection-icon-input]");
   const nextInput = form.querySelector("[data-collection-next-input]");
   const picker = form.querySelector("[data-collection-icon-picker]");
-  const icons = readCollectionIcons();
+  const searchInput = form.querySelector("[data-collection-icon-search]");
+  const hint = form.querySelector("[data-collection-icon-hint]");
+  const suggestedIcons = readSuggestedIcons();
 
-  const setIcon = (iconName) => {
-    const icon = icons.includes(iconName) ? iconName : DEFAULT_COLLECTION_ICON;
+  let currentQuery = "";
+  let selectedIcon = iconInput?.value || DEFAULT_COLLECTION_ICON;
+
+  const countMatches = (query, allIcons) => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return suggestedIcons.length;
+    return allIcons.filter((icon) => icon.includes(normalized)).length;
+  };
+
+  const setIcon = (iconName, allIcons) => {
+    const icon =
+      allIcons?.includes(iconName) || suggestedIcons.includes(iconName)
+        ? iconName
+        : isValidIconName(iconName)
+          ? iconName
+          : DEFAULT_COLLECTION_ICON;
+    selectedIcon = icon;
     if (iconInput) iconInput.value = icon;
     picker?.querySelectorAll("[data-collection-icon-option]").forEach((button) => {
-      const selected = button.dataset.collectionIconOption === icon;
-      button.classList.toggle("is-selected", selected);
-      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      const isSelected = button.dataset.collectionIconOption === icon;
+      button.classList.toggle("is-selected", isSelected);
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
     });
+  };
+
+  const refreshPicker = async () => {
+    const allIcons = await loadMdiIcons(modal);
+    const totalMatches = countMatches(currentQuery, allIcons);
+    const icons = buildVisibleIcons(currentQuery, suggestedIcons, allIcons, selectedIcon);
+    renderIconButtons(picker, icons, selectedIcon);
+    updateIconHint(hint, currentQuery, icons.length, totalMatches);
   };
 
   if (picker && !picker.dataset.ready) {
     picker.dataset.ready = "1";
-    picker.innerHTML = icons
-      .map(
-        (icon) => `
-          <button
-            type="button"
-            class="collection-icon-option"
-            data-collection-icon-option="${icon}"
-            aria-label="${icon.replace(/-/g, " ")}"
-            aria-pressed="false"
-            title="${icon.replace(/-/g, " ")}"
-          >
-            <span class="mdi mdi-${icon}" aria-hidden="true"></span>
-          </button>
-        `
-      )
-      .join("");
 
     picker.addEventListener("click", (event) => {
       const button = event.target.closest("[data-collection-icon-option]");
       if (!button) return;
-      setIcon(button.dataset.collectionIconOption);
+      setIcon(button.dataset.collectionIconOption, allMdiIcons);
+    });
+
+    searchInput?.addEventListener("input", () => {
+      currentQuery = searchInput.value;
+      refreshPicker();
     });
   }
 
@@ -67,11 +184,14 @@ function initCollectionCreateModal() {
     modal.hidden = false;
     document.body.classList.add("collection-modal-open");
     if (nextInput) nextInput.value = window.location.pathname;
-    if (nameInput) {
-      nameInput.value = "";
-    }
-    setIcon(iconInput?.value || DEFAULT_COLLECTION_ICON);
-    nameInput?.focus();
+    if (nameInput) nameInput.value = "";
+    if (searchInput) searchInput.value = "";
+    currentQuery = "";
+    selectedIcon = iconInput?.value || DEFAULT_COLLECTION_ICON;
+    refreshPicker().then(() => {
+      setIcon(selectedIcon, allMdiIcons);
+      nameInput?.focus();
+    });
   };
 
   const closeModal = () => {
