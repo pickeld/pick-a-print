@@ -1,18 +1,18 @@
 {% load static %}
 <div
-  id="collection-create-modal"
+  id="collection-form-modal"
   class="collection-modal"
-  data-collection-create-modal
+  data-collection-form-modal
   data-mdi-icons-url="{% static 'library/data/mdi-icons.json' %}?v={{ static_asset_version }}"
   hidden
   role="dialog"
   aria-modal="true"
-  aria-labelledby="collection-create-modal-title"
+  aria-labelledby="collection-form-modal-title"
 >
   <button type="button" class="collection-modal__backdrop" data-collection-modal-close aria-label="Close"></button>
   <div class="collection-modal__panel">
     <div class="collection-modal__header">
-      <h3 id="collection-create-modal-title">New collection</h3>
+      <h3 id="collection-form-modal-title" data-collection-modal-title>New collection</h3>
       <button type="button" class="btn btn-ghost collection-modal__close" data-collection-modal-close aria-label="Close">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M18 6 6 18"></path>
@@ -25,17 +25,18 @@
       method="post"
       action="{% url 'collections_list' %}"
       class="collection-modal__form"
-      data-collection-create-form
+      data-collection-form
+      data-collection-create-action="{% url 'collections_list' %}"
     >
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.path }}" data-collection-next-input>
       <input type="hidden" name="icon" value="folder" data-collection-icon-input>
 
       <div class="form-group">
-        <label for="collection-create-name">Name</label>
+        <label for="collection-form-name">Name</label>
         <input
           type="text"
-          id="collection-create-name"
+          id="collection-form-name"
           name="name"
           required
           maxlength="200"
@@ -46,10 +47,10 @@
       </div>
 
       <div class="form-group">
-        <label for="collection-create-icon-search">Icon</label>
+        <label for="collection-form-icon-search">Icon</label>
         <input
           type="search"
-          id="collection-create-icon-search"
+          id="collection-form-icon-search"
           class="collection-icon-search"
           placeholder="Search icons…"
           autocomplete="off"
@@ -61,7 +62,7 @@
 
       <div class="collection-modal__actions">
         <button type="button" class="btn btn-ghost" data-collection-modal-close>Cancel</button>
-        <button type="submit" class="btn btn-primary">Create</button>
+        <button type="submit" class="btn btn-primary" data-collection-submit-btn>Create</button>
       </div>
     </form>
   </div>

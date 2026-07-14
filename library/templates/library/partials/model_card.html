@@ -1,13 +1,23 @@
 {% load library_extras %}
 
 {% if selectable %}
-<div class="model-card-wrap">
+<div
+  class="model-card-wrap"
+  data-model-card
+  draggable="true"
+  data-model-id="{{ model.pk }}"
+  data-model-title="{{ model.title }}"
+>
   <label class="model-card-check" aria-label="Select {{ model.title }}">
     <input type="checkbox" name="model_ids" value="{{ model.pk }}" form="model-bulk-form">
   </label>
 {% endif %}
 
-<a href="{% url 'model_detail' pk=model.pk %}" class="model-card{% if selectable %} model-card--selectable{% endif %}">
+<a
+  href="{% url 'model_detail' pk=model.pk %}"
+  class="model-card{% if selectable %} model-card--selectable{% endif %}"
+  {% if not selectable %}data-model-card draggable="true" data-model-id="{{ model.pk }}" data-model-title="{{ model.title }}"{% endif %}
+>
   <div class="model-card-thumb">
     {% if model.thumbnail_url %}
       <img src="{{ model.thumbnail_url }}" alt="{{ model.title }}" loading="lazy">

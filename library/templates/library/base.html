@@ -73,9 +73,16 @@
             </a>
           {% endif %}
           {% for col in sidebar_collections %}
-            <a href="{% url 'collection_detail' slug=col.slug %}" class="nav-link {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}">
+            <a
+              href="{% url 'collection_detail' slug=col.slug %}"
+              class="nav-link nav-collection-drop {% if request.resolver_match.url_name == 'collection_detail' and request.resolver_match.kwargs.slug == col.slug %}active{% endif %}"
+              data-collection-drop-target
+              data-collection-id="{{ col.pk }}"
+              data-collection-name="{{ col.name }}"
+              title="Drop a model here to add it"
+            >
               <span class="mdi mdi-{{ col.icon|default:'folder' }} nav-link-icon" aria-hidden="true"></span> {{ col.name }}
-              <span class="count">{{ col.model_count }}</span>
+              <span class="count" data-collection-count="{{ col.pk }}">{{ col.model_count }}</span>
             </a>
           {% endfor %}
         </div>
@@ -142,6 +149,7 @@
 
   <script src="{% static 'library/js/app.js' %}?v={{ static_asset_version }}"></script>
   <script src="{% static 'library/js/collection_manage.js' %}?v={{ static_asset_version }}"></script>
+  <script src="{% static 'library/js/collection_drop.js' %}?v={{ static_asset_version }}"></script>
   <script src="{% static 'library/js/pwa.js' %}?v={{ static_asset_version }}"></script>
   <script src="{% static 'library/js/file_drop.js' %}?v={{ static_asset_version }}"></script>
 </body>

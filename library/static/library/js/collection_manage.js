@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
-  initCollectionCreateModal();
+  initCollectionFormModal();
   document.querySelectorAll("[data-collection-manage]").forEach(initCollectionManage);
+  document.querySelectorAll("[data-collection-edit-trigger]").forEach(initCollectionEditTrigger);
 });
 
 const DEFAULT_COLLECTION_ICON = "folder";
@@ -119,11 +120,27 @@ function updateIconHint(hint, query, visibleCount, totalMatches) {
   hint.textContent = `${visibleCount} icon${visibleCount === 1 ? "" : "s"} found`;
 }
 
-function initCollectionCreateModal() {
-  const modal = document.querySelector("[data-collection-create-modal]");
-  const form = modal?.querySelector("[data-collection-create-form]");
+function collectionEditAction(id) {
+  return `/collections/${id}/edit/`;
+}
+
+function readCollectionFromElement(element) {
+  const id = Number.parseInt(element.dataset.collectionId || "", 10);
+  if (!Number.isFinite(id)) return null;
+  return {
+    id,
+    name: element.dataset.collectionName || "",
+    icon: element.dataset.collectionIcon || DEFAULT_COLLECTION_ICON,
+  };
+}
+
+function initCollectionFormModal() {
+  const modal = document.querySelector("[data-collection-form-modal]");
+  const form = modal?.querySelector("[data-collection-form]");
   if (!modal || !form) return;
 
+  const title = modal.querySelector("[data-collection-modal-title]");
+  const submitBtn = form.querySelector("[data-collection-submit-btn]");
   const nameInput = form.querySelector("[data-collection-name-input]");
   const iconInput = form.querySelector("[data-collection-icon-input]");
   const nextInput = form.querySelector("[data-collection-next-input]");
@@ -131,9 +148,11 @@ function initCollectionCreateModal() {
   const searchInput = form.querySelector("[data-collection-icon-search]");
   const hint = form.querySelector("[data-collection-icon-hint]");
   const suggestedIcons = readSuggestedIcons();
+  const createAction = form.dataset.collectionCreateAction || form.getAttribute("action");
 
   let currentQuery = "";
   let selectedIcon = iconInput?.value || DEFAULT_COLLECTION_ICON;
+  let modalMode = "create";
 
   const countMatches = (query, allIcons) => {
     const normalized = query.trim().toLowerCase();
@@ -180,14 +199,34 @@ function initCollectionCreateModal() {
     });
   }
 
-  const openModal = () => {
+  const configureModal = (mode, collection = null) => {
+    modalMode = mode;
+
+    if (mode === "edit" && collection) {
+      if (title) title.textContent = "Edit collection";
+      if (submitBtn) submitBtn.textContent = "Save";
+      form.action = collectionEditAction(collection.id);
+      if (nameInput) nameInput.value = collection.name;
+      selectedIcon = collection.icon || DEFAULT_COLLECTION_ICON;
+      if (iconInput) iconInput.value = selectedIcon;
+    } else {
+      if (title) title.textContent = "New collection";
+      if (submitBtn) submitBtn.textContent = "Create";
+      form.action = createAction;
+      if (nameInput) nameInput.value = "";
+      selectedIcon = DEFAULT_COLLECTION_ICON;
+      if (iconInput) iconInput.value = selectedIcon;
+    }
+
+    if (searchInput) searchInput.value = "";
+    currentQuery = "";
+  };
+
+  const openModal = (mode = "create", collection = null) => {
     modal.hidden = false;
     document.body.classList.add("collection-modal-open");
     if (nextInput) nextInput.value = window.location.pathname;
-    if (nameInput) nameInput.value = "";
-    if (searchInput) searchInput.value = "";
-    currentQuery = "";
-    selectedIcon = iconInput?.value || DEFAULT_COLLECTION_ICON;
+    configureModal(mode, collection);
     refreshPicker().then(() => {
       setIcon(selectedIcon, allMdiIcons);
       nameInput?.focus();
@@ -215,12 +254,33 @@ function initCollectionCreateModal() {
     }
   });
 
-  window.openCollectionCreateModal = openModal;
-  window.closeCollectionCreateModal = closeModal;
+  window.openCollectionCreateModal = () => openModal("create");
+  window.openCollectionEditModal = (collection) => {
+    if (!collection?.id) return;
+    openModal("edit", collection);
+  };
+  window.closeCollectionFormModal = closeModal;
 
   if (modal.dataset.openOnLoad === "1") {
-    openModal();
+    const mode = modal.dataset.openMode === "edit" ? "edit" : "create";
+    const collection =
+      mode === "edit"
+        ? {
+            id: Number.parseInt(modal.dataset.openCollectionId || "", 10),
+            name: nameInput?.value || "",
+            icon: iconInput?.value || DEFAULT_COLLECTION_ICON,
+          }
+        : null;
+    openModal(mode, collection);
   }
+}
+
+function initCollectionEditTrigger(button) {
+  button.addEventListener("click", () => {
+    const collection = readCollectionFromElement(button);
+    if (!collection) return;
+    window.openCollectionEditModal?.(collection);
+  });
 }
 
 function initCollectionManage(root) {
@@ -313,12 +373,11 @@ function initCollectionManage(root) {
     const item = event.target.closest("[data-collection-item]");
     if (!item) return;
 
-    const box = item.querySelector('input[name="collection_ids"]');
-    if (!box) return;
+    const collection = readCollectionFromElement(item);
+    if (!collection) return;
 
     event.preventDefault();
-    box.checked = !box.checked;
-    updateSelection();
+    window.openCollectionEditModal?.(collection);
   });
 
   deleteBtn?.addEventListener("click", (event) => {
@@ -351,3 +410,6 @@ function initCollectionManage(root) {
 
   setEditMode(false);
 }
+
+// Backwards-compatible alias used by older inline scripts.
+window.closeCollectionCreateModal = () => window.closeCollectionFormModal?.();

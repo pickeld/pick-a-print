@@ -667,6 +667,77 @@ img {
   position: relative;
 }
 
+.model-card-wrap[draggable="true"],
+.model-card[draggable="true"] {
+  cursor: grab;
+}
+
+.model-card-wrap[draggable="true"]:active,
+.model-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.model-card-wrap.is-dragging,
+.model-card.is-dragging {
+  opacity: 0.55;
+}
+
+.model-bulk-page.is-editing [data-model-card][draggable="true"] {
+  cursor: default;
+}
+
+.nav-collection-drop.is-drop-target {
+  border-color: rgba(245, 158, 11, 0.75);
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+
+.nav-collection-drop.is-drop-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+body.is-model-dragging .nav-collection-drop {
+  transition: background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s;
+}
+
+.collection-drop-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%) translateY(120%);
+  z-index: 1200;
+  max-width: min(92vw, 28rem);
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.collection-drop-toast.is-visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.collection-drop-toast--success {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.collection-drop-toast--info {
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.collection-drop-toast--error {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
 .model-card-wrap.is-selected .model-card {
   border-color: rgba(245, 158, 11, 0.65);
   box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
@@ -899,6 +970,10 @@ img {
 .collections-page.is-editing .collection-card {
   flex: 1;
   min-width: 0;
+}
+
+.collections-page.is-editing .collection-card-wrap[data-collection-item] {
+  cursor: pointer;
 }
 
 .collections-page.is-editing .collection-card--selectable {
@@ -1429,13 +1504,15 @@ body.collection-modal-open {
   letter-spacing: -0.01em;
 }
 
-.integration-summary-text {
-  font-size: 0.78rem;
-  line-height: 1.4;
+.integration-note {
+  margin: 0.95rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.integration-note:empty {
+  display: none;
 }
 
 .integration-summary-meta {
@@ -1716,10 +1793,6 @@ body.collection-modal-open {
 
   .integration-summary {
     align-items: flex-start;
-  }
-
-  .integration-summary-text {
-    white-space: normal;
   }
 
   .integration-actions-bar {

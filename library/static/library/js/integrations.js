@@ -90,7 +90,7 @@
       card.dataset.status = row.status;
       const badge = card.querySelector(".integration-status-badge");
       if (badge) badge.innerHTML = statusPill(row.status);
-      const note = card.querySelector(".integration-summary-text");
+      const note = card.querySelector(".integration-note");
       if (note) note.textContent = row.note || "";
     });
     updateOverview(integrations);

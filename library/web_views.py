@@ -938,6 +938,59 @@ def collections_list_view(request):
 
 @login_required
 @require_http_methods(["POST"])
+def collection_add_model_view(request, pk):
+    collection = get_object_or_404(Collection, pk=pk, user=request.user)
+
+    try:
+        payload = json.loads(request.body.decode() or "{}")
+        model_id = int(payload["model_id"])
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    model = get_object_or_404(SavedModel, pk=model_id, user=request.user)
+
+    if model.collections.filter(pk=collection.pk).exists():
+        return JsonResponse(
+            {
+                "ok": True,
+                "already_member": True,
+                "message": f'"{model.title}" is already in "{collection.name}".',
+                "collection_id": collection.pk,
+                "model_count": collection.models.filter(user=request.user).count(),
+            }
+        )
+
+    model.collections.add(collection)
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": f'Added "{model.title}" to "{collection.name}".',
+            "collection_id": collection.pk,
+            "model_count": collection.models.filter(user=request.user).count(),
+        }
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def collection_edit_view(request, pk):
+    collection = get_object_or_404(Collection, pk=pk, user=request.user)
+    form = CollectionForm(request.POST, instance=collection)
+
+    if form.is_valid():
+        collection = form.save()
+        messages.success(request, f'Collection "{collection.name}" updated.')
+        return _redirect_after_collection_action(
+            request,
+            fallback=reverse("collection_detail", kwargs={"slug": collection.slug}),
+        )
+
+    messages.error(request, "Could not update collection. Check the name and icon.")
+    return _redirect_after_collection_action(request)
+
+
+@login_required
+@require_http_methods(["POST"])
 def collections_bulk_delete_view(request):
     collection_ids = _parse_collection_ids(request)
     if collection_ids is None:

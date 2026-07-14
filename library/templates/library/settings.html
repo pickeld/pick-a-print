@@ -80,7 +80,6 @@
         </span>
         <span class="integration-summary-main">
           <span class="integration-name">{{ integration.site }}</span>
-          <span class="integration-summary-text">{{ integration.note }}</span>
         </span>
         <span class="integration-summary-meta">
           <span class="integration-status-badge">
@@ -101,6 +100,7 @@
       </summary>
 
       <div class="integration-body">
+        <p class="integration-note">{{ integration.note }}</p>
         <div class="integration-tip">
           <span class="integration-tip-icon mdi mdi-lightbulb-on-outline" aria-hidden="true"></span>
           <p class="integration-help-text">{{ integration.help }}</p>

@@ -46,7 +46,13 @@
             </a>
           {% endif %}
           {% for col in collections %}
-            <div class="collection-card-wrap" data-collection-item>
+            <div
+              class="collection-card-wrap"
+              data-collection-item
+              data-collection-id="{{ col.pk }}"
+              data-collection-name="{{ col.name }}"
+              data-collection-icon="{{ col.icon|default:'folder' }}"
+            >
               <label class="collection-card-check" aria-label="Select {{ col.name }}">
                 <input type="checkbox" name="collection_ids" value="{{ col.pk }}" form="collections-bulk-form">
               </label>
@@ -70,8 +76,9 @@
 {% if form.errors %}
 <script>
   (() => {
-    const modal = document.getElementById("collection-create-modal");
+    const modal = document.getElementById("collection-form-modal");
     modal?.setAttribute("data-open-on-load", "1");
+    modal?.setAttribute("data-open-mode", "create");
     const nameInput = document.querySelector("[data-collection-name-input]");
     const iconInput = document.querySelector("[data-collection-icon-input]");
     if (nameInput) nameInput.value = "{{ form.name.value|default:''|escapejs }}";
